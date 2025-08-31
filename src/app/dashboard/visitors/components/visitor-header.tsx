@@ -29,7 +29,6 @@ const VisitorHeader: React.FC<VisitorHeaderProps> = ({
       
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <FiGrid className="w-5 h-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
           <FiUser className="w-5 h-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
         </div>
         <div className="text-sm text-muted-foreground">

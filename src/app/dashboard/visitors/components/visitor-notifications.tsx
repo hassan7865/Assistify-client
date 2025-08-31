@@ -1,10 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { FiX, FiUser, FiCheck, FiClock } from 'react-icons/fi';
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import React, { useState, useEffect } from 'react';
+import { Bell, CheckCircle, MessageCircle, X } from 'lucide-react';
 
 interface Notification {
   id: number;
@@ -19,63 +16,106 @@ interface Notification {
 interface VisitorNotificationsProps {
   notifications: Notification[];
   onClearNotifications: () => void;
-  onTakeVisitor?: (visitorId: string) => void;
+  onTakeVisitor: (visitorId: string) => void;
+  onRemoveNotification: (id: number) => void;
 }
 
 const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
   notifications,
   onClearNotifications,
-  onTakeVisitor
+  onTakeVisitor,
+  onRemoveNotification
 }) => {
   const [visibleNotifications, setVisibleNotifications] = useState<Notification[]>([]);
   const [progressStates, setProgressStates] = useState<{ [key: number]: number }>({});
 
+  // Handle new notifications
   useEffect(() => {
-    if (notifications.length > 0) {
-      // Add new notifications with animation
-      const newNotification = notifications[notifications.length - 1];
-      setVisibleNotifications(prev => [...prev, newNotification]);
-      
-      // Initialize progress bar for new notification
-      setProgressStates(prev => ({ ...prev, [newNotification.id]: 100 }));
-      
-      // Auto-remove after 8 seconds
-      setTimeout(() => {
-        setVisibleNotifications(prev => prev.filter(n => n.id !== newNotification.id));
-        setProgressStates(prev => {
-          const newState = { ...prev };
-          delete newState[newNotification.id];
-          return newState;
-        });
-      }, 8000);
-    }
-  }, [notifications]);
+    const newNotifications = notifications.filter(
+      notification => !visibleNotifications.some(visible => visible.id === notification.id)
+    );
 
-  // Progress bar animation effect
-  useEffect(() => {
-    const interval = setInterval(() => {
+    if (newNotifications.length > 0) {
+      // Add new notifications
+      setVisibleNotifications(prev => [...prev, ...newNotifications]);
+      
+      // Initialize progress states for new notifications only
       setProgressStates(prev => {
         const newState = { ...prev };
-        Object.keys(newState).forEach(id => {
-          if (newState[Number(id)] > 0) {
-            newState[Number(id)] = Math.max(0, newState[Number(id)] - 1.25); // 100% / 8 seconds = 1.25% per 100ms
+        newNotifications.forEach(notification => {
+          if (!(notification.id in newState)) {
+            newState[notification.id] = 100;
           }
         });
         return newState;
       });
+    }
+  }, [notifications, visibleNotifications]);
+
+  // Progress bar animation effect
+  useEffect(() => {
+    if (visibleNotifications.length === 0) return;
+
+    const interval = setInterval(() => {
+      setProgressStates(prev => {
+        const newState = { ...prev };
+        let hasChanges = false;
+
+        Object.keys(newState).forEach(id => {
+          const numId = Number(id);
+          if (newState[numId] > 0) {
+            // Find the notification to determine its type and timing
+            const notification = visibleNotifications.find(n => n.id === numId);
+            if (notification) {
+              const isSuccess = notification.type === 'success';
+              const decrementAmount = isSuccess ? 3.33 : 1.25;
+              
+              const newProgress = Math.max(0, newState[numId] - decrementAmount);
+              if (newProgress !== newState[numId]) {
+                newState[numId] = newProgress;
+                hasChanges = true;
+              }
+            }
+          }
+        });
+
+        return hasChanges ? newState : prev;
+      });
     }, 100);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [visibleNotifications]);
 
-  const removeNotification = (id: number) => {
+  // Auto-remove notifications when progress reaches 0
+  useEffect(() => {
+    const timeouts: NodeJS.Timeout[] = [];
+
+    Object.entries(progressStates).forEach(([id, progress]) => {
+      if (progress <= 0) {
+        const timeout = setTimeout(() => {
+          removeNotification(Number(id));
+        }, 100);
+        timeouts.push(timeout);
+      }
+    });
+
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [progressStates]);
+
+  const removeNotification = React.useCallback((id: number) => {
     setVisibleNotifications(prev => prev.filter(n => n.id !== id));
     setProgressStates(prev => {
       const newState = { ...prev };
       delete newState[id];
       return newState;
     });
-  };
+    // Call the parent's onRemoveNotification if provided
+    if (onRemoveNotification) {
+      onRemoveNotification(id);
+    }
+  }, [onRemoveNotification]);
 
   const handleTakeVisitor = (visitorId: string) => {
     if (onTakeVisitor) {
@@ -91,11 +131,11 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'new_visitor':
-        return <FiUser className="w-5 h-5 text-blue-600" />;
+        return <Bell className="w-4 h-4 text-blue-600" />;
       case 'success':
-        return <FiCheck className="w-5 h-5 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
       default:
-        return <FiClock className="w-5 h-5 text-gray-600" />;
+        return <MessageCircle className="w-4 h-4 text-gray-600" />;
     }
   };
 
@@ -106,7 +146,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
       case 'success':
         return 'border-green-200 bg-green-50/80 backdrop-blur-sm';
       default:
-        return 'border-border bg-muted/80 backdrop-blur-sm';
+        return 'border-gray-200 bg-gray-50/80 backdrop-blur-sm';
     }
   };
 
@@ -128,95 +168,88 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
       {visibleNotifications.map((notification, index) => (
         <div
           key={notification.id}
-          className={cn(
-            "transform transition-all duration-500 ease-out",
-            "border rounded-lg shadow-lg p-4",
-            "slide-in-from-right-full",
-            getNotificationColor(notification.type),
+          className={`transform transition-all duration-500 ease-out border rounded-lg shadow-lg p-4 translate-x-0 opacity-100 overflow-hidden ${getNotificationColor(notification.type)} ${
             index === 0 ? "scale-100" : "scale-95 opacity-90"
-          )}
+          }`}
           style={{
-            animationDelay: `${index * 100}ms`,
-            animationFillMode: 'both'
+            animationDelay: `${index * 100}ms`
           }}
         >
           {/* Header */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2">
-              {getNotificationIcon(notification.type)}
-              <div>
-                <h4 className="font-semibold text-sm text-foreground">
+          <div className="flex items-start justify-between mb-3 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="flex-shrink-0">
+                {getNotificationIcon(notification.type)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="font-semibold text-sm text-gray-900 truncate">
                   {getNotificationTitle(notification.type)}
                 </h4>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-500 mt-0.5">
                   {new Date(notification.timestamp).toLocaleTimeString()}
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => removeNotification(notification.id)}
-              className="h-6 w-6 p-0 hover:bg-muted rounded-full transition-colors"
+              className="flex-shrink-0 h-6 w-6 flex items-center justify-center hover:bg-gray-200 rounded-full transition-colors"
+              aria-label="Close notification"
             >
-              <FiX className="w-3 h-3" />
-            </Button>
+              <X className="w-3 h-3 text-gray-500" />
+            </button>
           </div>
 
           {/* Message */}
-          <p className="text-sm text-foreground mb-3">
+          <p className="text-sm text-gray-800 mb-3 break-words leading-relaxed">
             {notification.message}
           </p>
 
           {/* Visitor Info & Actions */}
           {notification.visitor_id && (
-            <div className="bg-card rounded-md p-3 border border-border shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-xs font-medium text-foreground">
+            <div className="bg-white/60 rounded-md p-3 border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                  <span className="text-xs font-medium text-gray-700 truncate">
                     Visitor {notification.visitor_id.substring(0, 8)}...
                   </span>
                   {notification.visitor_name && (
-                    <Badge variant="outline" className="text-xs">
-                      {notification.visitor_name}
-                    </Badge>
+                    <div className="inline-flex items-center px-2 py-1 bg-gray-100 border border-gray-300 rounded-full text-xs font-medium text-gray-700 max-w-[100px] flex-shrink-0">
+                      <span className="truncate block">
+                        {notification.visitor_name}
+                      </span>
+                    </div>
                   )}
                 </div>
                 {notification.visitor_status && (
-                  <Badge 
-                    variant="secondary" 
-                    className={cn(
-                      "text-xs",
-                      notification.visitor_status === 'new' 
-                        ? "bg-yellow-100 text-yellow-800" 
-                        : "bg-blue-100 text-blue-800"
-                    )}
-                  >
-                    {notification.visitor_status}
-                  </Badge>
+                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 max-w-[80px] ${
+                    notification.visitor_status === 'new' 
+                      ? "bg-yellow-100 text-yellow-800 border border-yellow-200" 
+                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                  }`}>
+                    <span className="truncate block">
+                      {notification.visitor_status}
+                    </span>
+                  </div>
                 )}
               </div>
 
               {/* Action Buttons */}
-              {notification.type === 'new_visitor' && onTakeVisitor && (
+              {notification.type === 'new_visitor' && (
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
+                  <button
                     onClick={() => handleTakeVisitor(notification.visitor_id!)}
-                    className="text-xs px-3 py-1 h-7"
+                    className="flex items-center justify-center text-xs px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex-1 min-w-0"
                   >
-                    <FiCheck className="w-3 h-3 mr-1" />
-                    Pick Visitor
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
+                    <CheckCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="truncate">Pick Visitor</span>
+                  </button>
+                  <button
                     onClick={() => removeNotification(notification.id)}
-                    className="text-xs px-3 py-1 h-7"
+                    className="flex items-center justify-center text-xs px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors border border-gray-300 font-medium flex-shrink-0"
                   >
                     Dismiss
-                  </Button>
+                  </button>
                 </div>
               )}
             </div>
@@ -224,12 +257,11 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
 
           {/* Progress Bar */}
           <div className="mt-3">
-            <div className="w-full bg-muted rounded-full h-1 overflow-hidden">
+            <div className="w-full bg-gray-200 rounded-full h-1 overflow-hidden">
               <div 
-                className="bg-primary h-1 rounded-full transition-all duration-100 ease-linear"
+                className="bg-blue-600 h-1 rounded-full transition-all duration-100 ease-linear"
                 style={{ 
-                  width: `${progressStates[notification.id] || 100}%`,
-                  transition: 'width 0.1s linear'
+                  width: `${progressStates[notification.id] || 100}%`
                 }}
               />
             </div>
@@ -239,19 +271,13 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
 
       {/* Clear All Button */}
       {visibleNotifications.length > 1 && (
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            size="sm"
+        <div className="flex justify-center mt-4">
+          <button
             onClick={onClearNotifications}
-            className={cn(
-              "text-xs text-muted-foreground hover:text-foreground",
-              "bg-background/80 backdrop-blur-sm border border-border",
-              "rounded-full px-4 py-2 transition-all duration-200 hover:bg-background"
-            )}
+            className="text-xs text-gray-600 hover:text-gray-800 bg-white/80 backdrop-blur-sm border border-gray-300 rounded-full px-4 py-2 transition-all duration-200 hover:bg-white shadow-sm font-medium"
           >
             Clear All ({visibleNotifications.length})
-          </Button>
+          </button>
         </div>
       )}
     </div>

@@ -1,14 +1,16 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import VisitorDropdown from './components/visitor-dropdown';
 import VisitorDetailsPopup from './components/visitor-details-popup';
 import VisitorHeader from './components/visitor-header';
-import VisitorNotifications from './components/visitor-notifications';
 import VisitorSearch from './components/visitor-search';
 import VisitorTable from './components/visitor-table';
 import { useVisitors } from './hooks/use-visitors';
 import { useAuth } from '@/contexts/auth-context';
+import { useVisitorActions } from '@/contexts/visitor-actions';
+import { ClientAgentOnly } from '@/components/role-guard';
+// No local notifications needed - global system handles everything
 
 // Import Visitor type from the table component
 interface Visitor {
@@ -37,12 +39,12 @@ interface Visitor {
 
 const VisitorPage = () => {
   const { user, isLoading: authLoading } = useAuth();
+  const { setTakeVisitorHandler } = useVisitorActions();
   const {
     selectedVisitor,
     isPopupOpen,
     visitors,
     loading,
-    notifications,
     sseStatus,
     searchTerm,
     allVisitors,
@@ -53,15 +55,25 @@ const VisitorPage = () => {
     fetchVisitors,
     takeVisitorById,
     removeVisitor,
-    clearNotifications,
     handleVisitorClick,
     closePopup,
     CURRENT_AGENT
   } = useVisitors();
 
+  // Register the takeVisitorById function with the global context
+  useEffect(() => {
+    setTakeVisitorHandler(takeVisitorById);
+  }, [takeVisitorById, setTakeVisitorHandler]);
+
   // Wrapper function to convert Visitor object to visitor ID for takeVisitorById
   const handleTakeVisitor = (visitor: Visitor) => {
     takeVisitorById(visitor.visitor_id);
+  };
+
+  // Wrapper function to handle chat ended - close popup and refresh visitors
+  const handleChatEnded = () => {
+    closePopup();
+    fetchVisitors();
   };
 
   // Show loading while authentication is being checked
@@ -77,84 +89,82 @@ const VisitorPage = () => {
   }
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      {/* Header */}
-      <VisitorHeader
-        agentName={CURRENT_AGENT?.name || 'Agent'}
-        agentId={CURRENT_AGENT?.id || ''}
-        totalVisitors={visitors.length}
-        filteredCount={allVisitors.length}
-        searchTerm={searchTerm}
-        sseStatus={sseStatus}
-      />
-
-      {/* Notifications */}
-      <VisitorNotifications
-        notifications={notifications}
-        onClearNotifications={clearNotifications}
-        onTakeVisitor={takeVisitorById}
-      />
-
-      {/* Search and Refresh */}
-      <VisitorSearch
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onRefresh={fetchVisitors}
-        loading={loading}
-      />
-
-      {/* Incoming Chats Section */}
-      <VisitorDropdown title="Incoming chats" defaultExpanded={true}>
-        <VisitorTable
-          title="Incoming chats"
-          visitors={incomingChats}
-          visitorCount={incomingChats.length}
-          type="incoming"
-          onTakeVisitor={handleTakeVisitor}
-          onRemoveVisitor={removeVisitor}
-          onVisitorClick={handleVisitorClick}
+    <ClientAgentOnly>
+      <div className="p-6 bg-white min-h-screen">
+        {/* Global notifications are handled by the global notification system */}
+        
+        {/* Header */}
+        <VisitorHeader
+          agentName={CURRENT_AGENT?.name || 'Agent'}
+          agentId={CURRENT_AGENT?.id || ''}
+          totalVisitors={visitors.length}
+          filteredCount={allVisitors.length}
           searchTerm={searchTerm}
-        />
-      </VisitorDropdown>
+          sseStatus={sseStatus}
+                />
 
-      {/* Currently Served Section */}
-      <VisitorDropdown title="Currently served" defaultExpanded={true}>
-        <VisitorTable
-          title="Currently served"
-          visitors={servedVisitors}
-          visitorCount={servedVisitors.length}
-          type="served"
-          onTakeVisitor={handleTakeVisitor}
-          onRemoveVisitor={removeVisitor}
-          onVisitorClick={handleVisitorClick}
+          {/* Search and Refresh */}
+        <VisitorSearch
           searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onRefresh={fetchVisitors}
+          loading={loading}
         />
-      </VisitorDropdown>
 
-      {/* Active Website Visitors Section */}
-      <VisitorDropdown title="Active website visitors" defaultExpanded={true}>
-        <VisitorTable
-          title="Active website visitors"
-          visitors={activeWebsiteVisitors}
-          visitorCount={activeWebsiteVisitors.length}
-          type="active"
-          onTakeVisitor={handleTakeVisitor}
-          onRemoveVisitor={removeVisitor}
-          onVisitorClick={handleVisitorClick}
-          searchTerm={searchTerm}
-        />
-      </VisitorDropdown>
+        {/* Incoming Chats Section */}
+        <VisitorDropdown title="Incoming chats" defaultExpanded={true}>
+          <VisitorTable
+            title="Incoming chats"
+            visitors={incomingChats}
+            visitorCount={incomingChats.length}
+            type="incoming"
+            onTakeVisitor={handleTakeVisitor}
+            onRemoveVisitor={removeVisitor}
+            onVisitorClick={handleVisitorClick}
+            searchTerm={searchTerm}
+          />
+        </VisitorDropdown>
 
-      {/* Visitor Details Popup */}
-      {selectedVisitor && isPopupOpen && (
-        <VisitorDetailsPopup
-          visitor={selectedVisitor}
-          selectedAgent={CURRENT_AGENT || undefined}
-          isOpen={isPopupOpen}
-          onClose={closePopup}
-        />
-      )}
-    </div>
+        {/* Currently Served Section */}
+        <VisitorDropdown title="Currently served" defaultExpanded={true}>
+          <VisitorTable
+            title="Currently served"
+            visitors={servedVisitors}
+            visitorCount={servedVisitors.length}
+            type="served"
+            onTakeVisitor={handleTakeVisitor}
+            onRemoveVisitor={removeVisitor}
+            onVisitorClick={handleVisitorClick}
+            searchTerm={searchTerm}
+          />
+        </VisitorDropdown>
+
+        {/* Active Website Visitors Section */}
+        <VisitorDropdown title="Active website visitors" defaultExpanded={true}>
+          <VisitorTable
+            title="Active website visitors"
+            visitors={activeWebsiteVisitors}
+            visitorCount={activeWebsiteVisitors.length}
+            type="active"
+            onTakeVisitor={handleTakeVisitor}
+            onRemoveVisitor={removeVisitor}
+            onVisitorClick={handleVisitorClick}
+            searchTerm={searchTerm}
+          />
+        </VisitorDropdown>
+
+        {/* Visitor Details Popup */}
+        {selectedVisitor && isPopupOpen && (
+          <VisitorDetailsPopup
+            visitor={selectedVisitor}
+            selectedAgent={CURRENT_AGENT || undefined}
+            isOpen={isPopupOpen}
+            onClose={closePopup}
+            onChatEnded={handleChatEnded}
+          />
+        )}
+      </div>
+    </ClientAgentOnly>
   );
 };
 

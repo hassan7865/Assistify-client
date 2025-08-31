@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import api from '@/lib/axios';
+import { API_ENDPOINTS } from '@/lib/constants';
 
 interface User {
   user_id: string;
@@ -38,7 +40,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_BASE = 'http://localhost:8000/api/v1';
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL + '/api/v1';
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -47,35 +49,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
-      const accessToken = localStorage.getItem('accessToken');
-      const refreshToken = localStorage.getItem('refreshToken');
+      const token = localStorage.getItem('token');
+      const storedRefreshToken = localStorage.getItem('refreshToken');
 
-      if (!accessToken) {
+      if (!token) {
         setIsLoading(false);
         return;
       }
 
       // Try to get current user info
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      try {
+        const response = await api.get(`${API_ENDPOINTS.LOGIN.replace('/login', '/me')}`);
+        
+        if (response.status === 200) {
+          const userData = response.data;
+          setUser(userData);
+        } else {
+          // Clear invalid tokens
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
         }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else if (response.status === 401 && refreshToken) {
-        // Token expired, try to refresh
-        await refreshToken();
-      } else {
+      } catch (error) {
+        console.error('Failed to get user info:', error);
         // Clear invalid tokens
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('accessToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
     } finally {
       setIsLoading(false);
@@ -86,36 +88,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const response = await api.post(`${API_ENDPOINTS.LOGIN}`, {
+        email,
+        password
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = response.data;
         
         // Store tokens
-        localStorage.setItem('accessToken', data.access_token);
+        localStorage.setItem('token', data.access_token);
         localStorage.setItem('refreshToken', data.refresh_token);
         
         // Get user info
-        const userResponse = await fetch(`${API_BASE}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${data.access_token}`
+        try {
+          const userResponse = await api.get(`${API_ENDPOINTS.LOGIN.replace('/login', '/me')}`);
+          
+          if (userResponse.status === 200) {
+            const userData = userResponse.data;
+            setUser(userData);
+            return true;
           }
-        });
-
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          setUser(userData);
-          return true;
+        } catch (error) {
+          console.error('Failed to get user info after login:', error);
         }
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Login failed');
       }
       
       return false;
@@ -129,16 +125,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const storedRefreshToken = localStorage.getItem('refreshToken');
       
       // Call logout endpoint to revoke token
-      if (refreshToken) {
-        fetch(`${API_BASE}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ refresh_token: refreshToken }),
+      if (storedRefreshToken) {
+        api.post(`${API_ENDPOINTS.LOGIN.replace('/login', '/logout')}`, {
+          refresh_token: storedRefreshToken
         }).catch(console.error);
       }
     } catch (error) {
@@ -146,47 +138,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       // Clear local state and tokens
       setUser(null);
-      localStorage.removeItem('accessToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
     }
   };
 
   const refreshToken = async (): Promise<boolean> => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const storedRefreshToken = localStorage.getItem('refreshToken');
       
-      if (!refreshToken) {
+      if (!storedRefreshToken) {
+        console.log('No refresh token found');
         return false;
       }
 
-      const response = await fetch(`${API_BASE}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+      console.log('Attempting to refresh token...');
+      
+      const response = await api.post(`${API_ENDPOINTS.REFRESH_TOKEN}`, {
+        refresh_token: storedRefreshToken
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem('accessToken', data.access_token);
+      if (response.status === 200) {
+        const data = response.data;
+        console.log('Token refresh successful');
+        
+        // Store new tokens
+        localStorage.setItem('token', data.access_token);
         localStorage.setItem('refreshToken', data.refresh_token);
+        
+        // Try to get updated user info with new token
+        try {
+          const userResponse = await api.get(`${API_ENDPOINTS.LOGIN.replace('/login', '/me')}`);
+          
+          if (userResponse.status === 200) {
+            const userData = userResponse.data;
+            setUser(userData);
+          }
+        } catch (userError) {
+          console.error('Failed to get user info after token refresh:', userError);
+        }
+        
         return true;
       } else {
         // Refresh failed, clear tokens
-        localStorage.removeItem('accessToken');
+        console.log('Token refresh failed:', response.status, response.statusText);
+        
+        localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         setUser(null);
         return false;
       }
     } catch (error) {
       console.error('Token refresh failed:', error);
-      localStorage.removeItem('accessToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       setUser(null);
       return false;
     }
   };
+
+
 
   const value: AuthContextType = {
     user,

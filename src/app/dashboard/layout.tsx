@@ -3,6 +3,10 @@ import React from "react";
 import AppSidebar from "../Layout/app-sidebar";
 import Header from "../Layout/header";
 import { ProtectedRoute } from "@/components/protected-route";
+import { GlobalNotificationProvider } from "@/contexts/global-notifications";
+import { VisitorActionsProvider } from "@/contexts/visitor-actions";
+import GlobalNotificationDisplay from "./components/global-notification-display";
+import VisitorMonitor from "./components/visitor-monitor";
 
 export default function DashboardLayout({
   children,
@@ -11,18 +15,31 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
-      <SidebarProvider defaultOpen={true}>
-        <div className="flex h-screen w-full overflow-hidden">
-          <AppSidebar />
+      <GlobalNotificationProvider>
+        <VisitorActionsProvider>
+          <SidebarProvider defaultOpen={true}>
+            <div className="flex h-screen w-full overflow-hidden">
+              <AppSidebar />
 
-          <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
-            <Header />
-            <div className="flex-1 overflow-y-auto p-1">
-              {children}
+              <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
+                <Header />
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  {/* Global Notifications - Visible on all dashboard pages */}
+                  <GlobalNotificationDisplay />
+                  
+                  {/* Global Visitor Monitor - Runs regardless of current page */}
+                  <VisitorMonitor />
+                  
+                  {/* Page Content */}
+                  <div className="flex-1 overflow-y-auto p-1">
+                    {children}
+                  </div>
+                </div>
+              </SidebarInset>
             </div>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
+          </SidebarProvider>
+        </VisitorActionsProvider>
+      </GlobalNotificationProvider>
     </ProtectedRoute>
   );
 }

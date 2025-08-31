@@ -1,66 +1,66 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from "@/contexts/auth-context";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const { login, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   }, [isAuthenticated, isLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    
-    // Validate password length
+    setError("");
+
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError("Password must be at least 6 characters long");
       return;
     }
-    
+
     setIsSubmitting(true);
 
     try {
       const success = await login(email, password);
-      if (success) {
-        router.push('/dashboard');
+      if (!success) {
+        setError("Invalid email or password");
       }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      
-      // Handle different error types
-      let errorMessage = 'Login failed. Please try again.';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.detail) {
-        errorMessage = error.detail;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error.error) {
-        errorMessage = error.error;
+      // no need to manually redirect, useEffect handles it
+    } catch (err: unknown) {
+      console.error("Login error:", err);
+
+      let errorMessage = "Login failed. Please try again.";
+      if (err && typeof err === "object") {
+        if ("message" in err && typeof (err as any).message === "string") {
+          errorMessage = (err as any).message;
+        } else if ("detail" in err && typeof (err as any).detail === "string") {
+          errorMessage = (err as any).detail;
+        } else if ("error" in err && typeof (err as any).error === "string") {
+          errorMessage = (err as any).error;
+        }
+      } else if (typeof err === "string") {
+        errorMessage = err;
       }
-      
+
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -76,9 +76,6 @@ export default function LoginPage() {
           </h2>
         </div>
         <Card>
-          <CardHeader>
-            <CardTitle className="text-center">Login</CardTitle>
-          </CardHeader>
           <CardContent>
             {error && (
               <Alert className="mb-4 border-red-200 bg-red-50">
@@ -87,14 +84,13 @@ export default function LoginPage() {
                 </AlertDescription>
               </Alert>
             )}
-            
+
             <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
                   <Input
                     id="email"
-                    name="email"
                     type="email"
                     autoComplete="email"
                     required
@@ -108,7 +104,6 @@ export default function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <Input
                     id="password"
-                    name="password"
                     type="password"
                     autoComplete="current-password"
                     required
@@ -128,34 +123,38 @@ export default function LoginPage() {
                   <Checkbox
                     id="remember-me"
                     checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      setRememberMe(checked === true)
+                    }
                     disabled={isSubmitting}
                   />
-                  <Label htmlFor="remember-me" className="text-sm font-normal">
+                  <Label
+                    htmlFor="remember-me"
+                    className="text-sm font-normal"
+                  >
                     Remember me
                   </Label>
                 </div>
 
                 <div className="text-sm">
-                  <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+                  <a
+                    href="#"
+                    className="font-medium text-blue-600 hover:text-blue-500"
+                  >
                     Forgot your password?
                   </a>
                 </div>
               </div>
 
               <div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSubmitting}
-                >
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Signing in...
                     </>
                   ) : (
-                    'Sign in'
+                    "Sign in"
                   )}
                 </Button>
               </div>
