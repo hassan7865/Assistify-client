@@ -339,7 +339,6 @@ export const useVisitors = () => {
     incomingChats,
     servedVisitors,
     activeWebsiteVisitors,
-
     setSearchTerm,
     fetchVisitors,
     removeVisitor,
