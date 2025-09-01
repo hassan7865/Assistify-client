@@ -174,29 +174,6 @@ export const useVisitors = () => {
 
     } catch (error) {
       console.error("Error in fetchVisitors:", error);
-      
-      try {
-        const fallbackResponse = await api.get(`/api/v1/chat/all-visitors/${CLIENT_ID}`);
-        
-        if (fallbackResponse.data.visitors) {
-          const allVisitorsData = fallbackResponse.data.visitors.filter((visitor: Visitor) => {
-            const status = visitor.status?.toLowerCase();
-            return !["disconnected", "offline", "closed", "inactive"].includes(status);
-          });
-          
-          const pending = allVisitorsData.filter((v: Visitor) => !v.agent_id);
-          const active = allVisitorsData.filter((v: Visitor) => v.agent_id);
-          
-          setPendingVisitors(pending);
-          setActiveVisitors(active);
-          setVisitors(allVisitorsData);
-        }
-      } catch (fallbackError) {
-        console.error("Fallback also failed:", fallbackError);
-        setVisitors([]);
-        setPendingVisitors([]);
-        setActiveVisitors([]);
-      }
     } finally {
       setLoading(false);
     }
@@ -275,10 +252,6 @@ export const useVisitors = () => {
     }
   }, [selectedVisitor]);
 
-  const clearNotifications = useCallback(() => {
-    // No local notifications to clear - global system handles everything
-    console.log('No local notifications to clear');
-  }, []);
 
   const handleVisitorClick = useCallback((visitor: Visitor) => {
     setSelectedVisitor(visitor);
@@ -315,24 +288,7 @@ export const useVisitors = () => {
     return isActive;
   });
 
-  // Cleanup effect
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      const filterDisconnected = (visitors: Visitor[]) => 
-        visitors.filter((visitor) => {
-          const status = visitor.status?.toLowerCase();
-          return !["disconnected", "offline", "closed", "inactive"].includes(status);
-        });
 
-      setVisitors(prev => filterDisconnected(prev));
-      setPendingVisitors(prev => filterDisconnected(prev));
-      setActiveVisitors(prev => filterDisconnected(prev));
-      
-      fetchVisitors();
-    }, 20000);
-
-    return () => clearInterval(cleanupInterval);
-  }, [fetchVisitors]);
 
   // Initialize effect
   useEffect(() => {
@@ -387,7 +343,6 @@ export const useVisitors = () => {
     setSearchTerm,
     fetchVisitors,
     removeVisitor,
-    clearNotifications,
     handleVisitorClick,
     closePopup,
     takeVisitorById,
