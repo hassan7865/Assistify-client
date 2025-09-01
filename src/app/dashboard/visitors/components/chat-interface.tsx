@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import api from '@/lib/axios';
 import { API_ENDPOINTS } from '@/lib/constants';
+import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 
 interface ChatInterfaceProps {
   visitor: {
@@ -74,7 +75,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setChatMessages(convertedMessages);
       }
     } catch (error) {
-      // Error fetching existing chat messages
+      console.error('Error fetching existing chat messages:', error);
     }
   };
 
@@ -122,6 +123,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       chatWebSocketRef.current = new WebSocket(wsUrl);
 
       chatWebSocketRef.current.onopen = () => {
+        console.log('WebSocket connected');
         setIsConnected(true);
         setIsConnecting(false);
         
@@ -134,6 +136,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       chatWebSocketRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('Received WebSocket message:', data);
           
           if (data.type === 'chat_message') {
             setChatMessages(prev => [...prev, {
@@ -146,25 +149,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               status: 'delivered'
             }]);
           } else if (data.type === 'chat_connected') {
-            // Chat connected
+            console.log('Chat connected');
           } else if (data.type === 'typing_indicator') {
-            // Typing indicator
-          } else if (data.type === 'chat_ended' || data.type === 'session_closed') {
+            // Handle typing indicator
+          } else if (data.type === 'session_closed') {
+            console.log('Session closed by server:', data);
+            handleChatEndedBySystem();
+          } else if (data.type === 'chat_ended') {
+            console.log('Chat ended by server:', data);
             handleChatEndedBySystem();
           }
         } catch (error) {
-          // Error parsing WebSocket message
+          console.error('Error parsing WebSocket message:', error);
         }
       };
 
       chatWebSocketRef.current.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
         setIsConnecting(false);
         
         if (event.code === 1000 && 
             (event.reason === 'Chat ended by system' || 
              event.reason === 'Session closed' ||
-             event.reason === 'Visitor disconnected')) {
+             event.reason === 'Visitor disconnected' ||
+             event.reason === 'Component unmounting')) {
           handleChatEndedBySystem();
           return;
         }
@@ -181,15 +190,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       };
 
       chatWebSocketRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
         setIsConnected(false);
         setIsConnecting(false);
       };
     } catch (error) {
+      console.error('Error creating WebSocket:', error);
       setIsConnecting(false);
     }
   }, [visitor.session_id, selectedAgent?.id, isConnecting, chatStarted, isEndingChat]);
 
   const endChatSession = useCallback(async () => {
+  
     setIsEndingChat(true);
     
     if (reconnectTimeoutRef.current) {
@@ -197,46 +209,90 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       reconnectTimeoutRef.current = null;
     }
     
-    if (chatWebSocketRef.current) {
-      chatWebSocketRef.current.close(1000, 'Chat ended by agent');
-      chatWebSocketRef.current = null;
-    }
-    
-    if (visitor.session_id && selectedAgent?.id) {
+    // Try to send close_session message via WebSocket first
+    if (chatWebSocketRef.current && chatWebSocketRef.current.readyState === WebSocket.OPEN) {
       try {
-        const response = await api.post(`${API_ENDPOINTS.CLOSE_SESSION}/${visitor.session_id}`, {
+        const closeMessage = {
+          type: 'close_session',
           reason: 'agent_ended_chat',
-          closed_by: selectedAgent.id
-        });
+          timestamp: new Date().toISOString()
+        };
         
-        if (response.status === 200) {
-          setChatMessages(prev => [...prev, {
-            id: `${Date.now()}-session-closed`,
-            sender: 'system',
-            message: 'Chat session ended successfully',
-            timestamp: new Date().toISOString(),
-            status: 'sent'
-          }]);
-        } else {
-          setChatMessages(prev => [...prev, {
-            id: `${Date.now()}-session-error`,
-            sender: 'system',
-            message: 'Failed to close chat session',
-            timestamp: new Date().toISOString(),
-            status: 'sent'
-          }]);
-        }
+      
+        chatWebSocketRef.current.send(JSON.stringify(closeMessage));
+        
+        // Add system message indicating session is being closed
+        setChatMessages(prev => [...prev, {
+          id: `${Date.now()}-session-closing`,
+          sender: 'system',
+          message: 'Closing chat session...',
+          timestamp: new Date().toISOString(),
+          status: 'sent'
+        }]);
+        
+        // Wait a bit for the server to process the message
+        setTimeout(() => {
+          if (chatWebSocketRef.current) {
+            chatWebSocketRef.current.close(1000, 'Chat ended by agent');
+            chatWebSocketRef.current = null;
+          }
+          finalizeChatEnd();
+        }, 1000);
+        
       } catch (error) {
+        console.error('Error sending close_session message:', error);
         setChatMessages(prev => [...prev, {
           id: `${Date.now()}-session-error`,
           sender: 'system',
           message: 'Error occurred while closing session',
           timestamp: new Date().toISOString(),
-            status: 'sent'
+          status: 'sent'
         }]);
+        
+        // Fallback to API call
+        await fallbackEndSession();
       }
+    } else {
+      console.log('WebSocket not connected, using API fallback');
+      // Fallback to API call if WebSocket is not connected
+      await fallbackEndSession();
+    }
+  }, [visitor.visitor_id, visitor.session_id, selectedAgent?.id, onChatEnded]);
+
+  const fallbackEndSession = async () => {
+    try {
+      // Try to end session via API as fallback
+      const response = await api.post(`${API_ENDPOINTS.CLOSE_SESSION}/${visitor.session_id}`, {
+        reason: 'agent_ended_chat',
+        agent_id: selectedAgent?.id
+      });
+      
+      if (response.data.success) {
+        setChatMessages(prev => [...prev, {
+          id: `${Date.now()}-session-closed`,
+          sender: 'system',
+          message: 'Chat session ended via API',
+          timestamp: new Date().toISOString(),
+          status: 'sent'
+        }]);
+      } else {
+        throw new Error('API call failed');
+      }
+    } catch (error) {
+      console.error('Error ending session via API:', error);
+      setChatMessages(prev => [...prev, {
+        id: `${Date.now()}-session-error`,
+        sender: 'system',
+        message: 'Failed to end session properly',
+        timestamp: new Date().toISOString(),
+        status: 'sent'
+      }]);
     }
     
+    finalizeChatEnd();
+  };
+
+  const finalizeChatEnd = () => {
     setIsConnected(false);
     setIsConnecting(false);
     setChatStarted(false);
@@ -245,11 +301,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setChatMessages([]);
       setIsEndingChat(false);
       
+      // Emit global event for session closed by agent
+      globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
+        visitor_id: visitor.visitor_id,
+        session_id: visitor.session_id,
+        reason: 'agent_ended_chat',
+        timestamp: new Date().toISOString()
+      });
+      
       if (onChatEnded) {
         onChatEnded();
       }
     }, 1500);
-  }, [visitor.session_id, selectedAgent?.id, onChatEnded]);
+  };
 
   const handleChatEndedBySystem = useCallback(() => {
     setIsEndingChat(true);
@@ -290,12 +354,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const message = {
       type: 'chat_message',
-      message: chatMessage.trim()
+      message: chatMessage.trim(),
+      timestamp: new Date().toISOString()
     };
 
     try {
+      console.log('Sending chat message:', message);
       chatWebSocketRef.current.send(JSON.stringify(message));
     } catch (error) {
+      console.error('Error sending message:', error);
       setChatMessages(prev => [...prev, {
         id: `${Date.now()}-error`,
         sender: 'system',
@@ -331,6 +398,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="flex-shrink-0 border-b border-gray-200 bg-white">
         <div className="px-4 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-600 bg-blue-50">
           Current Chat
+          {/* Connection Status Indicator */}
+          <div className="flex items-center gap-2 mt-1">
+            <div className={`w-2 h-2 rounded-full ${connectionStatus.color}`}></div>
+            <span className="text-xs text-gray-500">{connectionStatus.text}</span>
+          </div>
         </div>
       </div>
       
@@ -454,5 +526,3 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 };
 
 export default ChatInterface;
-
-

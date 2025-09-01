@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Edit2, MapPin, Monitor, Clock, Globe, MessageCircle, Check, Loader2 } from 'lucide-react';
+import { X, User, Edit2, MapPin, Monitor, Clock, Globe, MessageCircle, Check, Loader2, Download } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,14 +67,24 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
             <span className="text-gray-300 ml-2">({conversation.visitor_id?.substring(0, 8)})</span>
           </div>
         </div>
-        <Button 
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="h-8 w-8 text-white hover:bg-gray-800"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-white hover:bg-gray-800"
+            title="Download transcript"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 text-white hover:bg-gray-800"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Tabs Container */}

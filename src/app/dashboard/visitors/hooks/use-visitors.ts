@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from "@/lib/constants";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalNotifications } from "@/contexts/global-notifications";
 import { useVisitorActions } from "@/contexts/visitor-actions";
+import { globalEventEmitter, EVENTS } from "@/lib/event-emitter";
 
 interface Visitor {
   visitor_id: string;
@@ -40,12 +41,9 @@ export const useVisitors = () => {
   const [pendingVisitors, setPendingVisitors] = useState<Visitor[]>([]);
   const [activeVisitors, setActiveVisitors] = useState<Visitor[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sseStatus, setSseStatus] = useState("disconnected");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const eventSourceRef = useRef<EventSource | null>(null);
   const pendingVisitorOperations = useRef<Set<string>>(new Set());
-  const isConnectedRef = useRef<boolean>(false);
 
   const CLIENT_ID = user?.client_id;
   const CURRENT_AGENT = user
@@ -57,72 +55,7 @@ export const useVisitors = () => {
 
 
 
-  const connectSSE = useCallback(() => {
-    if (!CURRENT_AGENT?.id || isConnectedRef.current) return;
-    
-    if (eventSourceRef.current?.readyState === EventSource.OPEN) {
-      console.log('SSE already connected');
-      return;
-    }
-    
-    disconnectSSE();
-    
-    const sseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/notifications/stream/${CURRENT_AGENT.id}`;
-    console.log('Connecting to SSE:', sseUrl);
 
-    eventSourceRef.current = new EventSource(sseUrl);
-    isConnectedRef.current = true;
-
-    eventSourceRef.current.onopen = () => {
-      console.log('SSE Connected successfully');
-      setSseStatus("connected");
-    };
-
-    eventSourceRef.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log('SSE Message received:', data);
-
-      if (data.type === "new_visitor") {
-        const visitorId = data.visitor_id;
-        const visitorName = data.metadata?.name || visitorId;
-        
-        // Add to global notifications (appears on all pages)
-        addGlobalNotification({
-          type: "new_visitor",
-          message: `New visitor: ${visitorName}`,
-          visitor_id: visitorId,
-          visitor_name: data.metadata?.name,
-          visitor_status: "new"
-        });
-
-
-
-        setTimeout(() => fetchVisitors(), 50);
-      }
-    };
-
-    eventSourceRef.current.onerror = (error) => {
-      console.error("SSE error:", error);
-      setSseStatus("error");
-      isConnectedRef.current = false;
-
-      setTimeout(() => {
-        if (CURRENT_AGENT?.id) {
-          connectSSE();
-        }
-      }, 3000);
-    };
-  }, [CURRENT_AGENT?.id, addGlobalNotification]);
-
-  const disconnectSSE = useCallback(() => {
-    if (eventSourceRef.current) {
-      console.log('Disconnecting SSE');
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      isConnectedRef.current = false;
-      setSseStatus("disconnected");
-    }
-  }, []);
 
   const fetchVisitors = useCallback(async () => {
     if (!CLIENT_ID) {
@@ -301,20 +234,12 @@ export const useVisitors = () => {
     console.log('Agent ID:', CURRENT_AGENT.id);
     console.log('Client ID:', CLIENT_ID);
 
-    // SSE connection is now handled globally, so we don't connect here
-    // connectSSE();
+    // Fetch initial visitors data
     fetchVisitors();
-
-
 
     return () => {
       console.log('Cleaning up useVisitors hook');
-      // disconnectSSE(); // SSE is now handled globally
-      
       pendingVisitorOperations.current.clear();
-      isConnectedRef.current = false;
-      
-
     };
   }, [CURRENT_AGENT?.id, CLIENT_ID, fetchVisitors]);
 
@@ -326,6 +251,39 @@ export const useVisitors = () => {
     });
   }, [visitors, pendingVisitors, activeVisitors]);
 
+  // Listen for global visitor events
+  useEffect(() => {
+    const handleNewVisitor = (visitorData: any) => {
+      console.log('Global new visitor event received:', visitorData);
+      // Refresh visitors data when a new visitor arrives
+      fetchVisitors();
+    };
+
+    const handleVisitorTaken = (visitorData: any) => {
+      console.log('Global visitor taken event received:', visitorData);
+      // Refresh visitors data when a visitor is taken
+      fetchVisitors();
+    };
+
+    const handleVisitorDisconnected = (visitorData: any) => {
+      console.log('Global visitor disconnected event received:', visitorData);
+      // Refresh visitors data when a visitor disconnects
+      fetchVisitors();
+    };
+
+    // Register event listeners
+    globalEventEmitter.on(EVENTS.NEW_VISITOR, handleNewVisitor);
+    globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
+    globalEventEmitter.on(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
+
+    // Cleanup event listeners
+    return () => {
+      globalEventEmitter.off(EVENTS.NEW_VISITOR, handleNewVisitor);
+      globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
+      globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
+    };
+  }, [fetchVisitors]);
+
   return {
     selectedVisitor,
     isPopupOpen,
@@ -333,7 +291,6 @@ export const useVisitors = () => {
     pendingVisitors,
     activeVisitors,
     loading,
-    sseStatus,
     searchTerm,
     allVisitors,
     incomingChats,
@@ -345,7 +302,6 @@ export const useVisitors = () => {
     handleVisitorClick,
     closePopup,
     takeVisitorById,
-
     CURRENT_AGENT,
   };
 };

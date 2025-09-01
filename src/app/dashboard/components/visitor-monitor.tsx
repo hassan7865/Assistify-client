@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useGlobalNotifications } from '@/contexts/global-notifications';
 import { UserRoleEnum } from '@/lib/constants';
+import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 
 const VisitorMonitor: React.FC = () => {
   const { user } = useAuth();
@@ -134,6 +135,13 @@ const VisitorMonitor: React.FC = () => {
           data.metadata?.name,
           "new"
         );
+
+        // Emit global event to notify other components
+        globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
+          visitor_id: visitorId,
+          metadata: data.metadata,
+          timestamp: new Date().toISOString()
+        });
 
         // Play sound for new visitor
         playNotificationSound();

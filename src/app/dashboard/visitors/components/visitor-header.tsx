@@ -10,7 +10,6 @@ interface VisitorHeaderProps {
   totalVisitors: number;
   filteredCount?: number;
   searchTerm: string;
-  sseStatus: string;
 }
 
 const VisitorHeader: React.FC<VisitorHeaderProps> = ({
@@ -19,7 +18,6 @@ const VisitorHeader: React.FC<VisitorHeaderProps> = ({
   totalVisitors,
   filteredCount,
   searchTerm,
-  sseStatus
 }) => {
   return (
     <div className="flex items-center justify-between mb-6">

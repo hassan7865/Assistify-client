@@ -45,7 +45,6 @@ const VisitorPage = () => {
     isPopupOpen,
     visitors,
     loading,
-    sseStatus,
     searchTerm,
     allVisitors,
     incomingChats,
@@ -100,7 +99,7 @@ const VisitorPage = () => {
           totalVisitors={visitors.length}
           filteredCount={allVisitors.length}
           searchTerm={searchTerm}
-          sseStatus={sseStatus}
+    
                 />
 
           {/* Search and Refresh */}
@@ -140,7 +139,7 @@ const VisitorPage = () => {
         </VisitorDropdown>
 
         {/* Active Website Visitors Section */}
-        <VisitorDropdown title="Active website visitors" defaultExpanded={true}>
+        {/* <VisitorDropdown title="Active website visitors" defaultExpanded={true}>
           <VisitorTable
             title="Active website visitors"
             visitors={activeWebsiteVisitors}
@@ -151,7 +150,7 @@ const VisitorPage = () => {
             onVisitorClick={handleVisitorClick}
             searchTerm={searchTerm}
           />
-        </VisitorDropdown>
+        </VisitorDropdown> */}
 
         {/* Visitor Details Popup */}
         {selectedVisitor && isPopupOpen && (
