@@ -47,3 +47,4 @@ export const EVENTS = {
   VISITOR_TAKEN: 'visitor_taken',
   VISITOR_DISCONNECTED: 'visitor_disconnected',
 } as const;
+
