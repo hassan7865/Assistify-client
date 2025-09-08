@@ -111,7 +111,7 @@ const VisitorMonitor: React.FC = () => {
     
     disconnectSSE();
     
-    const sseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/notifications/stream/${currentAgent.id}`;
+    const sseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}api/v1/notifications/stream/${currentAgent.id}`;
     console.log('Connecting to SSE from global monitor:', sseUrl);
 
     eventSourceRef.current = new EventSource(sseUrl);
