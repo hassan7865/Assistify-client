@@ -117,7 +117,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     
     setIsConnecting(true);
     
-    const wsUrl = `${API_ENDPOINTS.WS_BASE}/ws/chat/${visitor.session_id}/agent/${selectedAgent.id}`;
+    const wsUrl = `${API_ENDPOINTS.WS_BASE}ws/chat/${visitor.session_id}/agent/${selectedAgent.id}`;
     
     try {
       chatWebSocketRef.current = new WebSocket(wsUrl);
