@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { API_ENDPOINTS } from '@/lib/constants';
 import { UserRoleEnum } from '@/lib/constants';
 import { useAuth } from '@/contexts/auth-context';
 import api from '@/lib/axios';
@@ -56,7 +55,7 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
 
     try {
       setCreateLoading(true);
-      const response = await api.post(API_ENDPOINTS.CREATE_AGENT, {
+      const response = await api.post('/auth/agents', {
         name: formData.name,
         email: formData.email,
         password: formData.password,

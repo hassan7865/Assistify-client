@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '@/lib/axios';
-import { API_ENDPOINTS } from '@/lib/constants';
 
 interface User {
   user_id: string;
@@ -40,7 +39,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL + '/api/v1';
 
   // Check if user is authenticated on mount
   useEffect(() => {
@@ -59,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Try to get current user info
       try {
-        const response = await api.get(`${API_ENDPOINTS.LOGIN.replace('/login', '/me')}`);
+        const response = await api.get('/auth/me');
         
         if (response.status === 200) {
           const userData = response.data;
@@ -88,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      const response = await api.post(`${API_ENDPOINTS.LOGIN}`, {
+      const response = await api.post('/auth/login', {
         email,
         password
       });
@@ -102,7 +100,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Get user info
         try {
-          const userResponse = await api.get(`${API_ENDPOINTS.LOGIN.replace('/login', '/me')}`);
+          const userResponse = await api.get('/auth/me');
           
           if (userResponse.status === 200) {
             const userData = userResponse.data;
@@ -111,13 +109,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } catch (error) {
           console.error('Failed to get user info after login:', error);
+          // Clear tokens if user info fetch fails
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
         }
       }
       
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      throw error;
+      // Don't throw the error, just return false
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -129,7 +131,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Call logout endpoint to revoke token
       if (storedRefreshToken) {
-        api.post(`${API_ENDPOINTS.LOGIN.replace('/login', '/logout')}`, {
+        api.post('/auth/logout', {
           refresh_token: storedRefreshToken
         }).catch(console.error);
       }
@@ -148,19 +150,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const storedRefreshToken = localStorage.getItem('refreshToken');
       
       if (!storedRefreshToken) {
-        console.log('No refresh token found');
         return false;
       }
-
-      console.log('Attempting to refresh token...');
       
-      const response = await api.post(`${API_ENDPOINTS.REFRESH_TOKEN}`, {
+      const response = await api.post('/auth/refresh', {
         refresh_token: storedRefreshToken
       });
 
       if (response.status === 200) {
         const data = response.data;
-        console.log('Token refresh successful');
         
         // Store new tokens
         localStorage.setItem('token', data.access_token);
@@ -168,7 +166,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Try to get updated user info with new token
         try {
-          const userResponse = await api.get(`${API_ENDPOINTS.LOGIN.replace('/login', '/me')}`);
+          const userResponse = await api.get('/auth/me');
           
           if (userResponse.status === 200) {
             const userData = userResponse.data;
@@ -181,7 +179,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return true;
       } else {
         // Refresh failed, clear tokens
-        console.log('Token refresh failed:', response.status, response.statusText);
         
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');

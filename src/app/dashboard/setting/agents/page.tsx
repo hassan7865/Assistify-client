@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/contexts/auth-context";
-import { API_ENDPOINTS } from "@/lib/constants";
 import { UserRoleEnum } from "@/lib/constants";
 import api from "@/lib/axios";
 import CreateAgentDialog from "./components/create-agent-dialog";
@@ -45,7 +44,7 @@ const AgentsPage = () => {
     try {
       setLoading(true);
       const response = await api.get(
-        `${API_ENDPOINTS.GET_AGENTS}/${user?.client_id}`
+        `/auth/agents/${user?.client_id}`
       );
 
       if (response.status === 200) {
@@ -76,7 +75,7 @@ const AgentsPage = () => {
   const getRoleColor = (role: string) => {
     switch (role) {
       case "TEAM_LEAD":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-teal-100 text-teal-800 border-teal-200";
       case "AGENT":
         return "bg-green-100 text-green-800 border-green-200";
       default:

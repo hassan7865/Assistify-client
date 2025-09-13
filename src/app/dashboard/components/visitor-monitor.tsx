@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGlobalNotifications } from '@/contexts/global-notifications';
 import { UserRoleEnum } from '@/lib/constants';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
+import { FULL_API_BASE_URL } from '@/lib/axios';
 
 const VisitorMonitor: React.FC = () => {
   const { user } = useAuth();
@@ -111,7 +112,7 @@ const VisitorMonitor: React.FC = () => {
     
     disconnectSSE();
     
-    const sseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/notifications/stream/${currentAgent.id}`;
+    const sseUrl = `${FULL_API_BASE_URL}/notifications/stream/${currentAgent.id}`;
     console.log('Connecting to SSE from global monitor:', sseUrl);
 
     eventSourceRef.current = new EventSource(sseUrl);

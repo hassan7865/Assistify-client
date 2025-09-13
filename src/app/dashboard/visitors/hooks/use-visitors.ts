@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/axios";
-import { API_ENDPOINTS } from "@/lib/constants";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalNotifications } from "@/contexts/global-notifications";
 import { useVisitorActions } from "@/contexts/visitor-actions";
@@ -67,8 +66,8 @@ export const useVisitors = () => {
     
     try {
       const [pendingResult, activeResult] = await Promise.allSettled([
-        api.get(`/api/v1/chat/pending-visitors/${CLIENT_ID}`),
-        api.get(`/api/v1/chat/active-visitors/${CLIENT_ID}`)
+        api.get(`/chat/pending-visitors/${CLIENT_ID}`),
+        api.get(`/chat/active-visitors/${CLIENT_ID}`)
       ]);
 
       let pendingVisitorsData: Visitor[] = [];
@@ -136,7 +135,7 @@ export const useVisitors = () => {
 
     try {
       console.log('Taking visitor:', visitorId);
-      const response = await api.post(`/api/v1/chat/take-visitor`, {
+      const response = await api.post(`/chat/take-visitor`, {
         agent_id: CURRENT_AGENT.id,
         visitor_id: visitorId,
       });

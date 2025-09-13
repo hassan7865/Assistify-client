@@ -47,21 +47,7 @@ export default function LoginPage() {
       // no need to manually redirect, useEffect handles it
     } catch (err: unknown) {
       console.error("Login error:", err);
-
-      let errorMessage = "Login failed. Please try again.";
-      if (err && typeof err === "object") {
-        if ("message" in err && typeof (err as any).message === "string") {
-          errorMessage = (err as any).message;
-        } else if ("detail" in err && typeof (err as any).detail === "string") {
-          errorMessage = (err as any).detail;
-        } else if ("error" in err && typeof (err as any).error === "string") {
-          errorMessage = (err as any).error;
-        }
-      } else if (typeof err === "string") {
-        errorMessage = err;
-      }
-
-      setError(errorMessage);
+      setError("Login failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

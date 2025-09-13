@@ -124,8 +124,8 @@ export default function HistoryPage() {
           </div>
 
           {/* Search and Controls */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-end mb-4 w-full">
+            {/* <div className="flex items-center gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -150,9 +150,9 @@ export default function HistoryPage() {
               <Button variant="outline" size="sm" onClick={clearSearch}>
                 Clear search
               </Button>
-            </div>
+            </div> */}
 
-            <div className="flex items-center gap-4">
+            <div className="flex justify-end items-center gap-4">
               <span className="text-sm text-gray-600">
                 {pagination.total_count} total conversations
               </span>
@@ -211,7 +211,7 @@ export default function HistoryPage() {
                     <TableRow 
                       key={conversation._id} 
                       className={`hover:bg-gray-50 cursor-pointer ${
-                        selectedConversation?._id === conversation._id ? 'bg-blue-50' : ''
+                        selectedConversation?._id === conversation._id ? 'bg-teal-50' : ''
                       }`}
                       onClick={() => handleRowClick(conversation)}
                     >

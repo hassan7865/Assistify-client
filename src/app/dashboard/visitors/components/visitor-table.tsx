@@ -61,7 +61,7 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
         return <div className="w-3 h-3 bg-green-500 rounded-sm"></div>;
       case 'pending':
       case 'idle':
-        return <div className="w-3 h-3 bg-blue-400 rounded-sm"></div>;
+        return <div className="w-3 h-3 bg-teal-400 rounded-sm"></div>;
       default:
         return <div className="w-3 h-3 bg-muted-foreground rounded-sm"></div>;
     }
@@ -75,7 +75,7 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
         return <Badge variant="secondary" className="bg-green-100 text-green-800">Active</Badge>;
       case 'pending':
       case 'idle':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Pending</Badge>;
+        return <Badge variant="secondary" className="bg-teal-100 text-teal-800">Pending</Badge>;
       case 'closed':
         return <Badge variant="secondary" className="bg-muted text-muted-foreground">Closed</Badge>;
       default:

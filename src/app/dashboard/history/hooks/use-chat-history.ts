@@ -99,7 +99,7 @@ export const useChatHistory = () => {
         params.append('visitor_id', filters.visitor_id);
       }
 
-      const response = await api.get(`/api/v1/chat/history/${user.client_id}?${params}`);
+      const response = await api.get(`/chat/history/${user.client_id}?${params}`);
       
       if (response.data.success) {
         const data: ChatHistoryResponse = response.data.data;
@@ -118,7 +118,7 @@ export const useChatHistory = () => {
 
   const fetchConversationDetails = useCallback(async (sessionId: string) => {
     try {
-      const response = await api.get(`/api/v1/chat/conversation/${sessionId}`);
+      const response = await api.get(`/chat/conversation/${sessionId}`);
       
       if (response.data.success) {
         return response.data.data;

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Edit2, MapPin, Monitor, Clock, Globe, MessageCircle, Check, Loader2, Download } from 'lucide-react';
+import { X, User, Edit2, MapPin, Monitor, Clock, Globe, MessageCircle, Loader2, Download } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -291,7 +291,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                   {conversation.metadata?.referrer && (
                     <div className="space-y-1">
                       <span className="text-sm text-muted-foreground">Referrer:</span>
-                      <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded break-all">
+                      <div className="text-sm text-teal-600 bg-teal-50 p-2 rounded break-all">
                         {conversation.metadata.referrer}
                       </div>
                     </div>
@@ -299,7 +299,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                   {conversation.metadata?.page_url && (
                     <div className="space-y-1">
                       <span className="text-sm text-muted-foreground">Current Page:</span>
-                      <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded break-all">
+                      <div className="text-sm text-teal-600 bg-teal-50 p-2 rounded break-all">
                         {conversation.metadata.page_url}
                       </div>
                     </div>
@@ -341,9 +341,6 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                           message.sender_type === 'client_agent' ? 'justify-end' : 'justify-start'
                         }`}>
                           <span className="text-xs text-muted-foreground">{formatTime(message.timestamp)}</span>
-                          {message.sender_type === 'client_agent' && (
-                            <Check className="w-3 h-3 text-muted-foreground" />
-                          )}
                         </div>
                       </div>
 

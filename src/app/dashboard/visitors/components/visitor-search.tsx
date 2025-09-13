@@ -22,7 +22,7 @@ const VisitorSearch: React.FC<VisitorSearchProps> = ({
   return (
     <div className="flex justify-end items-center mb-6">
       <div className="flex items-center gap-4">
-        <div className="relative">
+        {/* <div className="relative">
           <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             type="text"
@@ -41,7 +41,7 @@ const VisitorSearch: React.FC<VisitorSearchProps> = ({
               <FiX className="w-4 h-4" />
             </Button>
           )}
-        </div>
+        </div> */}
         <Button onClick={onRefresh} disabled={loading} variant="outline">
           <FiRefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
           {loading ? 'Loading...' : 'Refresh'}

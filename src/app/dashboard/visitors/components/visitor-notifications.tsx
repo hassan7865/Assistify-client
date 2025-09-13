@@ -131,7 +131,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'new_visitor':
-        return <Bell className="w-4 h-4 text-blue-600" />;
+        return <Bell className="w-4 h-4 text-teal-600" />;
       case 'success':
         return <CheckCircle className="w-4 h-4 text-green-600" />;
       default:
@@ -142,7 +142,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
   const getNotificationColor = (type: string) => {
     switch (type) {
       case 'new_visitor':
-        return 'border-blue-200 bg-blue-50/80 backdrop-blur-sm';
+        return 'border-teal-200 bg-teal-50/80 backdrop-blur-sm';
       case 'success':
         return 'border-green-200 bg-green-50/80 backdrop-blur-sm';
       default:
@@ -209,7 +209,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
             <div className="bg-white/60 rounded-md p-3 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between mb-3 gap-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                  <div className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0"></div>
                   <span className="text-xs font-medium text-gray-700 truncate">
                     Visitor {notification.visitor_id.substring(0, 8)}...
                   </span>
@@ -225,7 +225,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
                   <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 max-w-[80px] ${
                     notification.visitor_status === 'new' 
                       ? "bg-yellow-100 text-yellow-800 border border-yellow-200" 
-                      : "bg-blue-100 text-blue-800 border border-blue-200"
+                      : "bg-teal-100 text-teal-800 border border-teal-200"
                   }`}>
                     <span className="truncate block">
                       {notification.visitor_status}
@@ -239,7 +239,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleTakeVisitor(notification.visitor_id!)}
-                    className="flex items-center justify-center text-xs px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex-1 min-w-0"
+                    className="flex items-center justify-center text-xs px-3 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors font-medium flex-1 min-w-0"
                   >
                     <CheckCircle className="w-3 h-3 mr-1 flex-shrink-0" />
                     <span className="truncate">Pick Visitor</span>
@@ -259,7 +259,7 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
           <div className="mt-3">
             <div className="w-full bg-gray-200 rounded-full h-1 overflow-hidden">
               <div 
-                className="bg-blue-600 h-1 rounded-full transition-all duration-100 ease-linear"
+                className="bg-teal-600 h-1 rounded-full transition-all duration-100 ease-linear"
                 style={{ 
                   width: `${progressStates[notification.id] || 100}%`
                 }}

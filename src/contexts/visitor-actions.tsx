@@ -241,7 +241,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
 
       console.log('Getting user info...');
       // Get current user info to get agent_id and client_id
-      const userResponse = await api.get('/api/v1/auth/me');
+      const userResponse = await api.get('/auth/me');
       const user = userResponse.data;
       
       console.log('User info received:', user);
@@ -263,7 +263,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
       console.log(`Making API call to take visitor ${visitorId} with agent ${user.user_id}`);
       
       // Make the API call to take the visitor
-      const response = await api.post('/api/v1/chat/take-visitor', {
+      const response = await api.post('/chat/take-visitor', {
         agent_id: user.user_id,
         visitor_id: visitorId,
       });
