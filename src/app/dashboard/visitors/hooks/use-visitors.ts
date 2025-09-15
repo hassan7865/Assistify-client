@@ -31,7 +31,7 @@ interface Visitor {
 
 export const useVisitors = () => {
   const { user } = useAuth();
-  const { addNotification: addGlobalNotification } = useGlobalNotifications();
+  const { addNotification: addGlobalNotification, removeNotificationsByVisitorId } = useGlobalNotifications();
   const { showSuccessNotification } = useVisitorActions();
   
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
@@ -113,15 +113,16 @@ export const useVisitors = () => {
 
   // Success handler using global notifications
   const handleTakeVisitorSuccess = useCallback((visitorId: string, visitorName?: string) => {
-    console.log(`handleTakeVisitorSuccess called for visitor: ${visitorId}`);
+    // Remove any existing notifications for this visitor immediately
+    removeNotificationsByVisitorId(visitorId);
     
     // Use global notification system for success message
     const displayName = visitorName || visitorId;
     showSuccessNotification(visitorId, displayName);
 
-    // Refresh data
-    setTimeout(() => fetchVisitors(), 300);
-  }, [showSuccessNotification, fetchVisitors]);
+    // Refresh immediately for the agent who took the visitor
+    fetchVisitors();
+  }, [showSuccessNotification, removeNotificationsByVisitorId, fetchVisitors]);
 
   const takeVisitorById = useCallback(async (visitorId: string) => {
     if (!CURRENT_AGENT?.id) return;
@@ -259,8 +260,6 @@ export const useVisitors = () => {
     };
 
     const handleVisitorTaken = (visitorData: any) => {
-      console.log('Global visitor taken event received:', visitorData);
-      // Refresh visitors data when a visitor is taken
       fetchVisitors();
     };
 

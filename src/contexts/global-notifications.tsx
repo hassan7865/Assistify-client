@@ -16,6 +16,7 @@ interface GlobalNotificationContextType {
   notifications: GlobalNotification[];
   addNotification: (notification: Omit<GlobalNotification, 'id' | 'timestamp'>) => void;
   removeNotification: (id: number) => void;
+  removeNotificationsByVisitorId: (visitorId: string) => void;
   clearNotifications: () => void;
 }
 
@@ -163,6 +164,10 @@ export const GlobalNotificationProvider: React.FC<GlobalNotificationProviderProp
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  const removeNotificationsByVisitorId = (visitorId: string) => {
+    setNotifications(prev => prev.filter(n => n.visitor_id !== visitorId));
+  };
+
   const clearNotifications = () => {
     console.log('Clearing all global notifications');
     setNotifications([]);
@@ -174,6 +179,7 @@ export const GlobalNotificationProvider: React.FC<GlobalNotificationProviderProp
       notifications,
       addNotification,
       removeNotification,
+      removeNotificationsByVisitorId,
       clearNotifications,
     }}>
       {children}

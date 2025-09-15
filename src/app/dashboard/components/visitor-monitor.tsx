@@ -9,7 +9,7 @@ import { FULL_API_BASE_URL } from '@/lib/axios';
 
 const VisitorMonitor: React.FC = () => {
   const { user } = useAuth();
-  const { addNotification } = useGlobalNotifications();
+  const { addNotification, removeNotificationsByVisitorId } = useGlobalNotifications();
   const eventSourceRef = useRef<EventSource | null>(null);
   const isConnectedRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -124,9 +124,8 @@ const VisitorMonitor: React.FC = () => {
 
     eventSourceRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log('Global SSE Message received:', data);
 
-      if (data.type === "new_visitor") {
+      if (data.type == "new_visitor") {
         const visitorId = data.visitor_id;
         
         createNotification(
@@ -146,6 +145,31 @@ const VisitorMonitor: React.FC = () => {
 
         // Play sound for new visitor
         playNotificationSound();
+      } else if (data.type == "visitor_assigned") {
+        const visitorId = data.visitor_id;
+        const assignedAgentId = data.assigned_agent_id;
+        const currentAgent = getCurrentAgent();
+        
+        // Remove any existing notifications for this visitor (like "new visitor" notifications)
+        removeNotificationsByVisitorId(visitorId);
+        
+        // Emit global event to notify other components (especially useVisitors hook)
+        globalEventEmitter.emit(EVENTS.VISITOR_TAKEN, {
+          visitor_id: visitorId,
+          assigned_agent_id: assignedAgentId,
+          timestamp: new Date().toISOString()
+        });
+
+        // Only show notification if visitor was assigned to current agent
+        if (currentAgent && assignedAgentId === currentAgent.id) {
+          createNotification(
+            "success",
+            visitorId,
+            `Visitor assigned to you successfully`,
+            undefined,
+            "assigned"
+          );
+        }
       }
     };
 
