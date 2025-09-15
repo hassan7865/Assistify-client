@@ -62,7 +62,6 @@ class GlobalNotificationDeduplication {
       existing.timestamp = currentTime;
       
       if (existing.count > this.MAX_DUPLICATES) {
-        console.log(`Blocked duplicate global notification: ${key} (count: ${existing.count})`);
         return { allowed: false, reason: 'too_many_duplicates' };
       }
     } else {
@@ -131,7 +130,6 @@ export const GlobalNotificationProvider: React.FC<GlobalNotificationProviderProp
     const checkResult = deduplicator.current.shouldAllowNotification(notification);
     
     if (!checkResult.allowed) {
-      console.log(`Blocked duplicate global notification: ${notification.type} for visitor ${notification.visitor_id} - Reason: ${checkResult.reason}`);
       return;
     }
 
@@ -144,23 +142,19 @@ export const GlobalNotificationProvider: React.FC<GlobalNotificationProviderProp
     // Track this notification
     deduplicator.current.trackNotification(newNotification);
     
-    console.log('Global notification added:', newNotification);
     setNotifications(prev => {
       const updated = [...prev, newNotification];
-      console.log('Global notifications updated:', updated);
       return updated;
     });
 
     // Auto-remove with type-specific timing
     const autoRemoveDelay = notification.type === 'success' ? 3000 : notification.type === 'error' ? 7000 : 8000;
     setTimeout(() => {
-      console.log('Auto-removing global notification:', newNotification.id);
       removeNotification(newNotification.id);
     }, autoRemoveDelay);
   };
 
   const removeNotification = (id: number) => {
-    console.log('Removing global notification:', id);
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
@@ -169,7 +163,6 @@ export const GlobalNotificationProvider: React.FC<GlobalNotificationProviderProp
   };
 
   const clearNotifications = () => {
-    console.log('Clearing all global notifications');
     setNotifications([]);
     deduplicator.current.clear();
   };

@@ -6,14 +6,15 @@ import { useGlobalNotifications } from '@/contexts/global-notifications';
 import { UserRoleEnum } from '@/lib/constants';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 import { FULL_API_BASE_URL } from '@/lib/axios';
+import SSEManager from '@/lib/sse-manager';
+import { Howl } from 'howler';
 
 const VisitorMonitor: React.FC = () => {
   const { user } = useAuth();
   const { addNotification, removeNotificationsByVisitorId } = useGlobalNotifications();
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const isConnectedRef = useRef(false);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sseManager = SSEManager.getInstance();
+  const soundRef = useRef<Howl | null>(null);
+  
 
   // Get current agent from user context (same logic as useVisitors hook)
   const getCurrentAgent = useCallback(() => {
@@ -26,70 +27,14 @@ const VisitorMonitor: React.FC = () => {
     return null;
   }, [user]);
 
-  // Play notification sound
+  // Play notification sound using Howler
   const playNotificationSound = useCallback(() => {
-    try {
-      if (audioRef.current) {
-        // Reset the audio to the beginning in case it's already played
-        audioRef.current.currentTime = 0;
-        
-        // Play the audio file
-        const playPromise = audioRef.current.play();
-        
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log('Notification sound played successfully');
-            })
-            .catch((error) => {
-              console.warn('Failed to play notification sound:', error);
-              // Fallback to Web Audio API if file playback fails
-              playFallbackSound();
-            });
-        }
-      } else {
-        console.warn('Audio element not available, using fallback sound');
-        playFallbackSound();
-      }
-    } catch (error) {
-      console.error('Error playing notification sound:', error);
-      playFallbackSound();
+    if (soundRef.current) {
+      soundRef.current.play();
     }
   }, []);
 
-  // Fallback Web Audio API sound
-  const playFallbackSound = useCallback(() => {
-    try {
-      const audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
 
-      const oscillator1 = audioContext.createOscillator();
-      const oscillator2 = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator1.connect(gainNode);
-      oscillator2.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator1.frequency.setValueAtTime(900, audioContext.currentTime);
-      oscillator1.frequency.setValueAtTime(1100, audioContext.currentTime + 0.05);
-      oscillator1.frequency.setValueAtTime(900, audioContext.currentTime + 0.1);
-
-      oscillator2.frequency.setValueAtTime(700, audioContext.currentTime + 0.15);
-      oscillator2.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
-
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-      oscillator1.start(audioContext.currentTime);
-      oscillator1.stop(audioContext.currentTime + 0.15);
-
-      oscillator2.start(audioContext.currentTime + 0.15);
-      oscillator2.stop(audioContext.currentTime + 0.3);
-    } catch (error) {
-      console.error('Fallback sound also failed:', error);
-    }
-  }, []);
 
   const createNotification = useCallback((type: string, visitorId: string, message: string, visitorName?: string, visitorStatus?: string) => {
     addNotification({
@@ -101,152 +46,99 @@ const VisitorMonitor: React.FC = () => {
     });
   }, [addNotification]);
 
-  const connectSSE = useCallback(() => {
-    const currentAgent = getCurrentAgent();
-    if (!currentAgent?.id || isConnectedRef.current) return;
-    
-    if (eventSourceRef.current?.readyState === EventSource.OPEN) {
-      console.log('SSE already connected');
-      return;
-    }
-    
-    disconnectSSE();
-    
-    const sseUrl = `${FULL_API_BASE_URL}/notifications/stream/${currentAgent.id}`;
-    console.log('Connecting to SSE from global monitor:', sseUrl);
-
-    eventSourceRef.current = new EventSource(sseUrl);
-    isConnectedRef.current = true;
-
-    eventSourceRef.current.onopen = () => {
-      console.log('Global SSE Connected successfully');
-    };
-
-    eventSourceRef.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type == "new_visitor") {
-        const visitorId = data.visitor_id;
-        
-        createNotification(
-          "new_visitor",
-          visitorId,
-          `New visitor: ${data.metadata?.name || visitorId}`,
-          data.metadata?.name,
-          "new"
-        );
-
-        // Emit global event to notify other components
-        globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
-          visitor_id: visitorId,
-          metadata: data.metadata,
-          timestamp: new Date().toISOString()
-        });
-
-        // Play sound for new visitor
-        playNotificationSound();
-      } else if (data.type == "visitor_assigned") {
-        const visitorId = data.visitor_id;
-        const assignedAgentId = data.assigned_agent_id;
-        const currentAgent = getCurrentAgent();
-        
-        // Remove any existing notifications for this visitor (like "new visitor" notifications)
-        removeNotificationsByVisitorId(visitorId);
-        
-        // Emit global event to notify other components (especially useVisitors hook)
-        globalEventEmitter.emit(EVENTS.VISITOR_TAKEN, {
-          visitor_id: visitorId,
-          assigned_agent_id: assignedAgentId,
-          timestamp: new Date().toISOString()
-        });
-
-        // Only show notification if visitor was assigned to current agent
-        if (currentAgent && assignedAgentId === currentAgent.id) {
-          createNotification(
-            "success",
-            visitorId,
-            `Visitor assigned to you successfully`,
-            undefined,
-            "assigned"
-          );
-        }
-      }
-    };
-
-    eventSourceRef.current.onerror = (error) => {
-      console.error("Global SSE error:", error);
-      isConnectedRef.current = false;
-
-      // Reconnect after 3 seconds
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+  // SSE message handler
+  const handleSSEMessage = useCallback((data: any) => {
+    if (data.type == "new_visitor") {
+      const visitorId = data.visitor_id;
       
-      reconnectTimeoutRef.current = setTimeout(() => {
-        if (getCurrentAgent()?.id) {
-          connectSSE();
-        }
-      }, 3000);
-    };
-  }, [getCurrentAgent, createNotification]);
+      createNotification(
+        "new_visitor",
+        visitorId,
+        `New visitor: ${data.metadata?.name || visitorId}`,
+        data.metadata?.name,
+        "new"
+      );
 
-  const disconnectSSE = useCallback(() => {
-    if (eventSourceRef.current) {
-      console.log('Disconnecting global SSE');
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      isConnectedRef.current = false;
+      // Emit global event to notify other components
+      globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
+        visitor_id: visitorId,
+        metadata: data.metadata,
+        timestamp: new Date().toISOString()
+      });
+
+      // Play sound for new visitor
+      playNotificationSound();
+    } else if (data.type == "visitor_assigned") {
+      const visitorId = data.visitor_id;
+      const assignedAgentId = data.assigned_agent_id;
+      const currentAgent = getCurrentAgent();
+      
+      // Remove any existing notifications for this visitor (like "new visitor" notifications)
+      removeNotificationsByVisitorId(visitorId);
+      
+      // Emit global event to notify other components (especially useVisitors hook)
+      globalEventEmitter.emit(EVENTS.VISITOR_TAKEN, {
+        visitor_id: visitorId,
+        assigned_agent_id: assignedAgentId,
+        timestamp: new Date().toISOString()
+      });
+
+      // Only show notification if visitor was assigned to current agent
+      if (currentAgent && assignedAgentId === currentAgent.id) {
+        createNotification(
+          "success",
+          visitorId,
+          `Visitor assigned to you successfully`,
+          undefined,
+          "assigned"
+        );
+      }
     }
-    
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  }, []);
+  }, [getCurrentAgent, createNotification, removeNotificationsByVisitorId, playNotificationSound]);
 
   // Initialize SSE connection when component mounts
   useEffect(() => {
     // Only run visitor monitor for client agents
     if (user && user.role === UserRoleEnum.CLIENT_AGENT) {
-      // Initialize audio element with the file from public folder
-      audioRef.current = new Audio("/notification-sound.mp3");
-      audioRef.current.volume = 0.6; // Adjust volume as needed
-      audioRef.current.preload = "auto"; // Preload the audio file
+      const currentAgent = getCurrentAgent();
       
-      // Optional: Test if the audio file loads successfully
-      audioRef.current.addEventListener('canplaythrough', () => {
-        console.log('Notification sound loaded successfully');
-      });
-      
-      audioRef.current.addEventListener('error', (e) => {
-        console.warn('Failed to load notification sound file:', e);
-      });
+      if (currentAgent?.id) {
+        // Initialize Howler sound
+        soundRef.current = new Howl({
+          src: ['/notification-sound.mp3'],
+          volume: 0.6,
+          preload: true,
+          html5: true, // Use HTML5 audio for better compatibility
+          onload: () => {
+            // Sound loaded successfully
+          },
+          onloaderror: () => {
+            // Sound failed to load
+          }
+        });
 
-      // Small delay to ensure auth is fully loaded
-      const timer = setTimeout(() => {
-        connectSSE();
-      }, 1000);
+        // Add listener to global SSE manager
+        sseManager.addListener(handleSSEMessage);
 
-      return () => {
-        clearTimeout(timer);
-        disconnectSSE();
-        
-        // Clean up audio element
-        if (audioRef.current) {
-          audioRef.current.removeEventListener('canplaythrough', () => {});
-          audioRef.current.removeEventListener('error', () => {});
-          audioRef.current = null;
-        }
-      };
+        // Small delay to ensure auth is fully loaded, then connect
+        const timer = setTimeout(() => {
+          sseManager.connect(currentAgent.id, FULL_API_BASE_URL);
+        }, 1000);
+
+        return () => {
+          clearTimeout(timer);
+          sseManager.removeListener(handleSSEMessage);
+          
+          // Clean up Howler sound
+          if (soundRef.current) {
+            soundRef.current.unload();
+            soundRef.current = null;
+          }
+        };
+      }
     }
-  }, [user, connectSSE, disconnectSSE]);
+  }, [user?.role, user?.user_id]); // Depend on role and user_id to handle user changes
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnectSSE();
-    };
-  }, [disconnectSSE]);
 
   // This component doesn't render anything visible
   return null;

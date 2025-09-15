@@ -159,7 +159,6 @@ export default function AppSidebar() {
 
   const handleStatusChange = (status: Status) => {
     setCurrentStatus(status);
-    console.log("Status changed to:", status);
   };
 
   const filteredNavItems = getNavItems(user?.role as UserRoleEnum);

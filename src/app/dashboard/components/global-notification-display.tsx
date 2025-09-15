@@ -13,7 +13,6 @@ const GlobalNotificationDisplay: React.FC = () => {
   const { takeVisitor } = useVisitorActions();
 
   const handleTakeVisitor = (visitorId: string) => {
-    console.log('GlobalNotificationDisplay: handleTakeVisitor called with visitorId:', visitorId);
     takeVisitor(visitorId);
   };
 

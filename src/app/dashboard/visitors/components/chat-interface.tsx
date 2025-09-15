@@ -124,7 +124,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       chatWebSocketRef.current = new WebSocket(wsUrl);
 
       chatWebSocketRef.current.onopen = () => {
-        console.log('WebSocket connected');
         setIsConnected(true);
         setIsConnecting(false);
         
@@ -137,7 +136,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       chatWebSocketRef.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received WebSocket message:', data);
           
           if (data.type === 'chat_message') {
             setChatMessages(prev => [...prev, {
@@ -150,7 +148,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               status: undefined
             }]);
           } else if (data.type === 'chat_connected') {
-            console.log('Chat connected');
           } else if (data.type === 'typing_indicator') {
             // Handle typing indicator from visitor
             setIsTyping(Boolean(data.is_typing && data.sender_type === 'visitor'));
@@ -165,10 +162,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               ));
             }
           } else if (data.type === 'session_closed') {
-            console.log('Session closed by server:', data);
             handleChatEndedBySystem();
           } else if (data.type === 'chat_ended') {
-            console.log('Chat ended by server:', data);
             handleChatEndedBySystem();
           }
         } catch (error) {
@@ -177,7 +172,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       };
 
       chatWebSocketRef.current.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
         setIsConnecting(false);
         
@@ -263,7 +257,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         await fallbackEndSession();
       }
     } else {
-      console.log('WebSocket not connected, using API fallback');
       // Fallback to API call if WebSocket is not connected
       await fallbackEndSession();
     }
@@ -415,7 +408,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     };
 
     try {
-      console.log('Sending chat message:', message);
       chatWebSocketRef.current.send(JSON.stringify(message));
     } catch (error) {
       console.error('Error sending message:', error);

@@ -46,27 +46,22 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       timestamp: new Date().toISOString(),
     };
     
-    console.log('Adding notification:', newNotification);
     setNotifications(prev => {
       const updated = [...prev, newNotification];
-      console.log('Updated notifications:', updated);
       return updated;
     });
 
     // Auto-remove after 8 seconds
     setTimeout(() => {
-      console.log('Auto-removing notification:', newNotification.id);
       removeNotification(newNotification.id);
     }, 8000);
   };
 
   const removeNotification = (id: number) => {
-    console.log('Removing notification:', id);
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const clearNotifications = () => {
-    console.log('Clearing all notifications');
     setNotifications([]);
   };
 

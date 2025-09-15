@@ -29,28 +29,50 @@ const VisitorNotifications: React.FC<VisitorNotificationsProps> = ({
   const [visibleNotifications, setVisibleNotifications] = useState<Notification[]>([]);
   const [progressStates, setProgressStates] = useState<{ [key: number]: number }>({});
 
-  // Handle new notifications
+  // Handle notifications sync (both adding and removing)
   useEffect(() => {
-    const newNotifications = notifications.filter(
-      notification => !visibleNotifications.some(visible => visible.id === notification.id)
-    );
-
-    if (newNotifications.length > 0) {
-      // Add new notifications
-      setVisibleNotifications(prev => [...prev, ...newNotifications]);
+    // Sync visible notifications with global notifications state
+    setVisibleNotifications(prev => {
+      // Find notifications to add
+      const newNotifications = notifications.filter(
+        notification => !prev.some(visible => visible.id === notification.id)
+      );
       
-      // Initialize progress states for new notifications only
-      setProgressStates(prev => {
-        const newState = { ...prev };
-        newNotifications.forEach(notification => {
-          if (!(notification.id in newState)) {
-            newState[notification.id] = 100;
-          }
-        });
-        return newState;
+      // Find notifications to remove
+      const removedNotificationIds = prev
+        .filter(visible => !notifications.some(notification => notification.id === visible.id))
+        .map(n => n.id);
+      
+      // Remove notifications that are no longer in the global state
+      let updated = prev.filter(visible => !removedNotificationIds.includes(visible.id));
+      
+      // Add new notifications
+      if (newNotifications.length > 0) {
+        updated = [...updated, ...newNotifications];
+      }
+      
+      return updated;
+    });
+    
+    // Initialize progress states for new notifications
+    setProgressStates(prev => {
+      const newState = { ...prev };
+      notifications.forEach(notification => {
+        if (!(notification.id in newState)) {
+          newState[notification.id] = 100;
+        }
       });
-    }
-  }, [notifications, visibleNotifications]);
+      
+      // Clean up progress states for removed notifications
+      Object.keys(newState).forEach(id => {
+        if (!notifications.some(n => n.id === Number(id))) {
+          delete newState[Number(id)];
+        }
+      });
+      
+      return newState;
+    });
+  }, [notifications]);
 
   // Progress bar animation effect
   useEffect(() => {

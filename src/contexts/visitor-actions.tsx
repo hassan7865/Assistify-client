@@ -72,7 +72,6 @@ class GlobalNotificationDeduplicator {
       const existingOperation = this.operationTracker.get(operationKey);
       
       if (existingOperation && currentTime - existingOperation.timestamp < this.OPERATION_COOLDOWN) {
-        console.log(`Blocked duplicate ${type} notification for operation: ${operation} on visitor: ${visitorId}`);
         return { allowed: false, reason: 'operation_cooldown' };
       }
     }
@@ -89,7 +88,6 @@ class GlobalNotificationDeduplicator {
         });
       } else if (visitorState.state === 'completed' && 
                  currentTime - visitorState.timestamp < this.OPERATION_COOLDOWN) {
-        console.log(`Blocked duplicate ${type} notification - operation already completed for visitor: ${visitorId}`);
         return { allowed: false, reason: 'operation_already_completed' };
       }
     }
@@ -103,7 +101,6 @@ class GlobalNotificationDeduplicator {
       existingMessage.timestamp = currentTime;
       
       if (existingMessage.count > this.MAX_DUPLICATE_MESSAGES) {
-        console.log(`Blocked duplicate ${type} notification - too many identical messages for visitor: ${visitorId}`);
         return { allowed: false, reason: 'too_many_duplicates' };
       }
     } else {
@@ -212,7 +209,6 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
   const globalTakeVisitor = useCallback(async (visitorId: string) => {
     // Prevent duplicate calls
     if (isTakingVisitor) {
-      console.log('Already taking a visitor, skipping duplicate call');
       return;
     }
 
@@ -221,7 +217,6 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
     setIsTakingVisitor(true);
     
     try {
-      console.log(`Global takeVisitor called for visitor: ${visitorId}`);
       
       // Get current user info from localStorage or make an API call
       const token = localStorage.getItem('token');
@@ -239,12 +234,10 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
         return;
       }
 
-      console.log('Getting user info...');
       // Get current user info to get agent_id and client_id
       const userResponse = await api.get('/auth/me');
       const user = userResponse.data;
       
-      console.log('User info received:', user);
       
       if (!user || !user.user_id) {
         console.error('Failed to get user info');
@@ -260,7 +253,6 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
         return;
       }
 
-      console.log(`Making API call to take visitor ${visitorId} with agent ${user.user_id}`);
       
       // Make the API call to take the visitor
       const response = await api.post('/chat/take-visitor', {
@@ -268,14 +260,12 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
         visitor_id: visitorId,
       });
 
-      console.log('Take visitor response:', response.data);
 
       if (response.data.success) {
         // Show success notification with deduplication
         const displayName = `Visitor ${visitorId.substring(0, 8)}`;
         showSuccessNotification(visitorId, displayName);
         
-        console.log(`Successfully took visitor ${visitorId} from global context`);
       } else {
         console.error('Failed to take visitor:', response.data.message);
         
@@ -307,19 +297,15 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
   }, [addNotification, isTakingVisitor]);
 
   const takeVisitor = useCallback((visitorId: string) => {
-    console.log('VisitorActions: takeVisitor called with visitorId:', visitorId);
-    console.log('VisitorActions: takeVisitorHandler available:', !!takeVisitorHandlerRef.current);
     
     // First try the page-specific handler if available
     if (takeVisitorHandlerRef.current) {
-      console.log('VisitorActions: Using page-specific handler');
       takeVisitorHandlerRef.current(visitorId);
       // Don't call global handler when page-specific handler is available
       return;
     }
     
     // Only use global handler if no page-specific handler is set
-    console.log('VisitorActions: No page-specific handler, using global handler');
     globalTakeVisitor(visitorId);
   }, [globalTakeVisitor]);
 
@@ -335,11 +321,9 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
     const checkResult = deduplicator.current.shouldAllowNotification('success', visitorId, message, 'take_visitor');
     
     if (!checkResult.allowed) {
-      console.log(`Skipping duplicate success notification for visitor: ${visitorId} - Reason: ${checkResult.reason}`);
       return;
     }
 
-    console.log(`Adding success notification for visitor: ${visitorId}`);
     addNotification({
       type: "success",
       message,

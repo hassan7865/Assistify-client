@@ -58,7 +58,6 @@ export const useVisitors = () => {
 
   const fetchVisitors = useCallback(async () => {
     if (!CLIENT_ID) {
-      console.log('No CLIENT_ID available, skipping fetch');
       return;
     }
 
@@ -128,20 +127,17 @@ export const useVisitors = () => {
     if (!CURRENT_AGENT?.id) return;
 
     if (pendingVisitorOperations.current.has(visitorId)) {
-      console.log(`Operation already in progress for visitor ${visitorId}`);
       return;
     }
 
     pendingVisitorOperations.current.add(visitorId);
 
     try {
-      console.log('Taking visitor:', visitorId);
       const response = await api.post(`/chat/take-visitor`, {
         agent_id: CURRENT_AGENT.id,
         visitor_id: visitorId,
       });
 
-      console.log('Take visitor response:', response.data);
 
       if (response.data.success) {
         const visitor = visitors.find(v => v.visitor_id === visitorId);
@@ -226,35 +222,22 @@ export const useVisitors = () => {
   // Initialize effect
   useEffect(() => {
     if (!CURRENT_AGENT?.id || !CLIENT_ID) {
-      console.log('Missing CURRENT_AGENT or CLIENT_ID');
       return;
     }
 
-    console.log('Initializing useVisitors hook');
-    console.log('Agent ID:', CURRENT_AGENT.id);
-    console.log('Client ID:', CLIENT_ID);
 
     // Fetch initial visitors data
     fetchVisitors();
 
     return () => {
-      console.log('Cleaning up useVisitors hook');
       pendingVisitorOperations.current.clear();
     };
   }, [CURRENT_AGENT?.id, CLIENT_ID, fetchVisitors]);
 
-  useEffect(() => {
-    console.log('Visitors state updated:', {
-      total: visitors.length,
-      pending: pendingVisitors.length,
-      active: activeVisitors.length
-    });
-  }, [visitors, pendingVisitors, activeVisitors]);
 
   // Listen for global visitor events
   useEffect(() => {
     const handleNewVisitor = (visitorData: any) => {
-      console.log('Global new visitor event received:', visitorData);
       // Refresh visitors data when a new visitor arrives
       fetchVisitors();
     };
@@ -264,7 +247,6 @@ export const useVisitors = () => {
     };
 
     const handleVisitorDisconnected = (visitorData: any) => {
-      console.log('Global visitor disconnected event received:', visitorData);
       // Refresh visitors data when a visitor disconnects
       fetchVisitors();
     };
