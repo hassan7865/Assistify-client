@@ -46,7 +46,6 @@ export default function LoginPage() {
       }
       // no need to manually redirect, useEffect handles it
     } catch (err: unknown) {
-      console.error("Login error:", err);
       setError("Login failed. Please try again.");
     } finally {
       setIsSubmitting(false);

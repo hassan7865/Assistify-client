@@ -30,17 +30,22 @@ const VisitorMonitor: React.FC = () => {
   const initializeAudio = useCallback(() => {
     if (audioRef.current) return; // Already initialized
     
-    audioRef.current = new Audio('/notification-sound.mp3');
-    audioRef.current.volume = 0.6;
-    audioRef.current.preload = 'auto';
-    
-    audioRef.current.addEventListener('canplaythrough', () => {
-      console.log('Notification sound loaded successfully');
-    });
-    
-    audioRef.current.addEventListener('error', (error) => {
-      console.error('Failed to load notification sound:', error);
-    });
+    try {
+      audioRef.current = new Audio('/notification-sound.mp3');
+      audioRef.current.volume = 0.6;
+      audioRef.current.preload = 'auto';
+      
+      audioRef.current.addEventListener('canplaythrough', () => {
+      });
+      
+      audioRef.current.addEventListener('error', (error) => {
+        // Don't throw error, just log warning
+      });
+      
+      // Try to load the audio
+      audioRef.current.load();
+    } catch (error) {
+    }
   }, []);
 
   // Play notification sound using native HTML5 Audio
@@ -50,10 +55,8 @@ const VisitorMonitor: React.FC = () => {
         // Reset to beginning and play
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch((error) => {
-          console.error('Failed to play notification sound:', error);
         });
       } catch (error) {
-        console.error('Failed to play notification sound:', error);
       }
     } else {
       // Audio not initialized yet, initialize it
@@ -63,7 +66,6 @@ const VisitorMonitor: React.FC = () => {
         if (audioRef.current) {
           audioRef.current.currentTime = 0;
           audioRef.current.play().catch((error) => {
-            console.error('Failed to play notification sound after initialization:', error);
           });
         }
       }, 100);
@@ -74,11 +76,9 @@ const VisitorMonitor: React.FC = () => {
 
   // SSE message handler
   const handleSSEMessage = useCallback((data: any) => {
-    console.log('SSE message received:', data);
     
     if (data.type == "new_visitor") {
       const visitorId = data.visitor_id;
-      console.log('New visitor detected:', visitorId);
       
       // Add visitor request instead of notification
       addRequest({
@@ -94,7 +94,6 @@ const VisitorMonitor: React.FC = () => {
       });
 
       // Play sound for new visitor
-      console.log('Attempting to play notification sound...');
       playNotificationSound();
     } else if (data.type == "visitor_assigned") {
       const visitorId = data.visitor_id;

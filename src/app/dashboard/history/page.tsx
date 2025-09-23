@@ -21,6 +21,7 @@ export default function HistoryPage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
   
   const {
     conversations,
@@ -51,11 +52,35 @@ export default function HistoryPage() {
   };
 
   const handleRowClick = (conversation: ChatConversation) => {
-    setSelectedConversation(conversation);
+    if (selectedConversation?._id === conversation._id) {
+      // If clicking the same row, close the sidebar
+      setIsClosing(true);
+      setTimeout(() => {
+        setSelectedConversation(null);
+        setIsClosing(false);
+      }, 300);
+      return;
+    }
+    
+    if (selectedConversation) {
+      // If switching between conversations, close current then open new
+      setIsClosing(true);
+      setTimeout(() => {
+        setSelectedConversation(conversation);
+        setIsClosing(false);
+      }, 300);
+    } else {
+      // If opening for first time, just set the conversation
+      setSelectedConversation(conversation);
+    }
   };
 
   const closeConversationDetails = () => {
-    setSelectedConversation(null);
+    setIsClosing(true);
+    setTimeout(() => {
+      setSelectedConversation(null);
+      setIsClosing(false);
+    }, 300);
   };
 
   const formatTimeAgo = (timestamp: string) => {
@@ -209,8 +234,8 @@ export default function HistoryPage() {
                   {conversations.map((conversation, index) => (
                     <TableRow 
                       key={conversation._id} 
-                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                        selectedConversation?._id === conversation._id ? 'bg-gray-100' : ''
+                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
+                        selectedConversation?._id === conversation._id ? 'bg-blue-50 border-blue-200 shadow-sm' : ''
                       }`}
                       onClick={() => handleRowClick(conversation)}
                     >
@@ -256,12 +281,17 @@ export default function HistoryPage() {
       </div>
 
       {/* Right Sidebar - Conversation Details */}
-      {selectedConversation && (
-        <HistorySidebar 
-          conversation={selectedConversation} 
-          onClose={closeConversationDetails} 
-        />
-      )}
+      <div className={`fixed right-0 top-0 h-screen w-[420px] bg-white border-l border-gray-200 shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+        selectedConversation && !isClosing ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        {selectedConversation && (
+          <HistorySidebar 
+            conversation={selectedConversation} 
+            onClose={closeConversationDetails}
+            isClosing={isClosing}
+          />
+        )}
+      </div>
     </div>
   );
 }

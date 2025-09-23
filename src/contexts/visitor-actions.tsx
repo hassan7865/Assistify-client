@@ -32,7 +32,6 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
       // Get current user info from localStorage or make an API call
       const token = localStorage.getItem('token');
       if (!token) {
-        console.error('No authentication token found');
         return;
       }
 
@@ -41,7 +40,6 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
       const user = userResponse.data;
       
       if (!user || !user.user_id) {
-        console.error('Failed to get user info');
         return;
       }
 
@@ -52,12 +50,9 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
       });
 
       if (response.data.success) {
-        console.log(`Successfully assigned visitor ${visitorId}`);
       } else {
-        console.error('Failed to take visitor:', response.data.message);
       }
     } catch (error: any) {
-      console.error('Error taking visitor from global context:', error);
     }
   }, []);
 

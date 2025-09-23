@@ -23,7 +23,9 @@ export default function Header() {
   const segments = pathname.split('/').filter(Boolean); 
   const { user, logout } = useAuth();
 
-  const filteredSegments = segments.filter(segment => segment.toLowerCase() != 'dashboard');
+  const filteredSegments = segments.filter(segment => 
+    segment.toLowerCase() !== 'dashboard' && segment.toLowerCase() !== 'setting'
+  );
 
   return (
     <header className="flex h-12 shrink-0 items-center px-4 transition-[width,height] ease-linear group-[data-collapsible=icon]/sidebar-wrapper:h-10">
@@ -177,9 +179,9 @@ export default function Header() {
                 <User className="h-4 w-4 text-gray-600" />
                 <div className="flex flex-col">
                   <p className="text-sm font-semibold text-gray-900">
-                    {user?.name || 'Anna Travis'}
+                    {user?.name || user?.organization_name}
                   </p>
-                  <Link href="/profile" className="text-xs text-gray-500 hover:text-gray-700">
+                  <Link href="/dashboard/setting/personal" className="text-xs text-gray-500 hover:text-gray-700">
                     View Profile
                   </Link>
                 </div>

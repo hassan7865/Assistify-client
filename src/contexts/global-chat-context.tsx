@@ -35,7 +35,7 @@ interface ChatMessage {
   sender_id?: string;
   message: string;
   timestamp: string;
-  status?: 'read';
+  status?: 'delivered' | 'read';
 }
 
 interface GlobalChatContextType {
@@ -208,7 +208,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         });
       }
     } catch (error) {
-      console.error('Error fetching chat history:', error);
       // Clear loading state on error
       setVisitorChatStates(prev => {
         const newMap = new Map(prev);
@@ -255,7 +254,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
               sender_id: data.sender_id,
               message: data.message,
               timestamp: data.timestamp || new Date().toISOString(),
-              status: undefined
+              status: 'delivered' // Mark as delivered when received
             };
             
             // Use functional state update to avoid stale closure issues
@@ -270,6 +269,13 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
               }
               return newMap;
             });
+            
+            // If it's a visitor message, send message_seen notification
+            if (data.sender_type === 'visitor') {
+              setTimeout(() => {
+                sendMessageSeen(newMessage.id);
+              }, 100); // Small delay to ensure state is updated
+            }
           } else if (data.type === 'typing_indicator') {
             setVisitorChatStates(prev => {
               const newMap = new Map(prev);
@@ -284,6 +290,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
             });
           } else if (data.type === 'message_seen') {
             if (data.sender_type === 'visitor') {
+              // Visitor has seen agent's message - update the specific message
               setVisitorChatStates(prev => {
                 const newMap = new Map(prev);
                 const currentState = newMap.get(selectedVisitor!.visitor_id);
@@ -300,10 +307,27 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
                 }
                 return newMap;
               });
+            } else if (data.sender_type === 'agent') {
+              // Agent has seen visitor's message - update the specific message
+              setVisitorChatStates(prev => {
+                const newMap = new Map(prev);
+                const currentState = newMap.get(selectedVisitor!.visitor_id);
+                if (currentState) {
+                  const updatedMessages = currentState.chatMessages.map(msg => 
+                    msg.sender === 'visitor' && msg.id === data.message_id 
+                      ? { ...msg, status: 'read' as const }
+                      : msg
+                  );
+                  newMap.set(selectedVisitor!.visitor_id, {
+                    ...currentState,
+                    chatMessages: updatedMessages
+                  });
+                }
+                return newMap;
+              });
             }
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
         }
       };
 
@@ -324,7 +348,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
         setVisitorChatStates(prev => {
           const newMap = new Map(prev);
           const currentState = newMap.get(selectedVisitor!.visitor_id);
@@ -340,7 +363,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         });
       };
     } catch (error) {
-      console.error('Error creating WebSocket:', error);
       setVisitorChatStates(prev => {
         const newMap = new Map(prev);
         const currentState = newMap.get(selectedVisitor!.visitor_id);
@@ -504,7 +526,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     
     // Validate that the logged-in agent can send messages to this visitor
     if (selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id) {
-      console.warn('Agent is not authorized to send messages to this visitor');
       return;
     }
     
@@ -540,11 +561,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
   }, [getCurrentChatState]);
 
   const sendMessageSeen = useCallback((messageId: string) => {
-    // Validate that the logged-in agent can send message seen status to this visitor
-    if (selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id) {
-      return;
-    }
-    
     const currentState = getCurrentChatState();
     if (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN) return;
     

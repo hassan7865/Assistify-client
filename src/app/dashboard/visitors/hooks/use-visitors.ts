@@ -69,14 +69,12 @@ export const useVisitors = () => {
       if (pendingResult.status === 'fulfilled') {
         pendingVisitorsData = pendingResult.value.data.visitors || [];
       } else {
-        console.error('Failed to fetch pending visitors:', pendingResult.reason);
       }
 
       let activeVisitorsData: Visitor[] = [];
       if (activeResult.status === 'fulfilled') {
         activeVisitorsData = activeResult.value.data.visitors || [];
       } else {
-        console.error('Failed to fetch active visitors:', activeResult.reason);
       }
 
       const filteredPendingVisitors = pendingVisitorsData.filter(
@@ -100,7 +98,6 @@ export const useVisitors = () => {
       setVisitors(allVisitors);
 
     } catch (error) {
-      console.error("Error in fetchVisitors:", error);
     } finally {
       setLoading(false);
     }
@@ -165,10 +162,8 @@ export const useVisitors = () => {
           openChat(updatedVisitor);
         }
       } else {
-        console.error("Failed to assign visitor:", response.data.message);
       }
     } catch (error) {
-      console.error("Error taking visitor by ID:", error);
     } finally {
       setTimeout(() => {
         pendingVisitorOperations.current.delete(visitorId);

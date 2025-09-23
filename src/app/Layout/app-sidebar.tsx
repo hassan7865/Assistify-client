@@ -61,19 +61,20 @@ const navItems: NavItem[] = [
   { title: "Home", url: "/dashboard", icon: MdHome },
   { title: "Visitors", url: "/dashboard/visitors", icon: MdPeople, roles: [UserRoleEnum.CLIENT_AGENT] },
   { title: "History", url: "/dashboard/history", icon: MdAccessTime },
-  { title: "Analytics", url: "/dashboard/analytics", icon: MdBarChart },
-  { title: "Monitor", url: "/dashboard/monitor", icon: MdMonitor },
+  { title: "Analytics", icon: MdBarChart }, // No URL - not clickable
+  { title: "Monitor", icon: MdMonitor }, // No URL - not clickable
   {
     title: "Settings",
     icon: MdSettings,
     children: [
       { title: "Agents", url: "/dashboard/setting/agents", icon: MdPerson },
-      { title: "Departments", url: "/dashboard/setting/departments", icon: MdPeople },
-      { title: "Roles", url: "/dashboard/setting/roles", icon: MdSecurity },
-      { title: "Routing", url: "/dashboard/setting/routing", icon: MdTune },
-      { title: "Shortcuts", url: "/dashboard/setting/shortcuts", icon: MdFlashOn },
-      { title: "Banned", url: "/dashboard/setting/banned", icon: MdFlag },
-      { title: "Triggers", url: "/dashboard/setting/triggers", icon: MdGpsFixed },
+      { title: "Personal", url: "/dashboard/setting/personal", icon: MdPerson },
+      { title: "Departments", icon: MdPeople }, // No URL - not clickable
+      { title: "Roles", icon: MdSecurity }, // No URL - not clickable
+      { title: "Routing", icon: MdTune }, // No URL - not clickable
+      { title: "Shortcuts", icon: MdFlashOn }, // No URL - not clickable
+      { title: "Banned", icon: MdFlag }, // No URL - not clickable
+      { title: "Triggers", icon: MdGpsFixed }, // No URL - not clickable
     ],
   },
 ];
@@ -145,28 +146,53 @@ function NavItemComponent({ item, level = 0, isOpen, onToggle }: NavItemProps) {
   const itemFontSize = isSubItem ? "text-xs" : "text-sm";
   const iconVisibility = isSubItem ? "invisible" : "visible";
 
-  return (
-    <Link href={item.url!} className="block">
-      <div
-        className={`${itemHeight} px-5 cursor-pointer whitespace-nowrap flex items-center ${
-          isActive
-            ? "bg-[#56777a] opacity-100"
-            : "opacity-55 hover:opacity-100"
-        } ${isSubItem ? "bg-transparent" : ""}`}
-      >
-        <item.icon className={`w-4 h-4 flex-shrink-0 ${iconVisibility}`} />
-        <div className={`flex-1 pl-5 text-white ${itemFontSize} flex items-center`}>
-          <span className="w-auto overflow-hidden whitespace-nowrap text-ellipsis">
-            {item.title}
-          </span>
-          {item.badge && (
-            <div className="ml-auto w-7 h-5 bg-white text-[#03363d] text-xs rounded-full flex items-center justify-center flex-shrink-0">
-              {item.badge}
-            </div>
-          )}
+  // If item has URL, make it a clickable link
+  if (item.url) {
+    return (
+      <Link href={item.url} className="block">
+        <div
+          className={`${itemHeight} px-5 cursor-pointer whitespace-nowrap flex items-center ${
+            isActive
+              ? "bg-[#56777a] opacity-100"
+              : "opacity-55 hover:opacity-100"
+          } ${isSubItem ? "bg-transparent" : ""}`}
+        >
+          <item.icon className={`w-4 h-4 flex-shrink-0 ${iconVisibility}`} />
+          <div className={`flex-1 pl-5 text-white ${itemFontSize} flex items-center`}>
+            <span className="w-auto overflow-hidden whitespace-nowrap text-ellipsis">
+              {item.title}
+            </span>
+            {item.badge && (
+              <div className="ml-auto w-7 h-5 bg-white text-[#03363d] text-xs rounded-full flex items-center justify-center flex-shrink-0">
+                {item.badge}
+              </div>
+            )}
+          </div>
         </div>
+      </Link>
+    );
+  }
+
+  // If no URL, just show as clickable but don't navigate
+  return (
+    <div
+      className={`${itemHeight} px-5 cursor-pointer whitespace-nowrap flex items-center opacity-55 hover:opacity-100 ${
+        isSubItem ? "bg-transparent" : ""
+      }`}
+      onClick={(e) => e.preventDefault()} // Prevent any action
+    >
+      <item.icon className={`w-4 h-4 flex-shrink-0 ${iconVisibility}`} />
+      <div className={`flex-1 pl-5 text-white ${itemFontSize} flex items-center`}>
+        <span className="w-auto overflow-hidden whitespace-nowrap text-ellipsis">
+          {item.title}
+        </span>
+        {item.badge && (
+          <div className="ml-auto w-7 h-5 bg-white text-[#03363d] text-xs rounded-full flex items-center justify-center flex-shrink-0">
+            {item.badge}
+          </div>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -303,13 +329,15 @@ export default function AppSidebar() {
               </div>
               {openItems.Team && (
                 <div className="py-2.5 bg-[#012c32]">
-                  <div className="h-12 px-5 cursor-pointer whitespace-nowrap flex items-center opacity-55">
-                    <div className="w-5 h-5 flex-shrink-0 invisible"></div>
-                    <div className="flex-1 pl-5 text-white text-sm flex items-center">
-                      <span className="w-auto overflow-hidden whitespace-nowrap text-ellipsis">View all</span>
-                      <div className="ml-auto w-7 h-5 bg-white text-[#03363d] text-xs rounded-full flex items-center justify-center flex-shrink-0">1</div>
+                  <Link href="/dashboard/setting/agents" className="block">
+                    <div className="h-12 px-5 cursor-pointer whitespace-nowrap flex items-center opacity-55 hover:opacity-100">
+                      <div className="w-5 h-5 flex-shrink-0 invisible"></div>
+                      <div className="flex-1 pl-5 text-white text-sm flex items-center">
+                        <span className="w-auto overflow-hidden whitespace-nowrap text-ellipsis">View all</span>
+                        <div className="ml-auto w-7 h-5 bg-white text-[#03363d] text-xs rounded-full flex items-center justify-center flex-shrink-0">1</div>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                   <div className="bg-[#012c32] h-9 px-5 pl-16 opacity-50 flex items-center">
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-2.5 flex-shrink-0"></div>
                     <span className="text-white text-xs">Arthur</span>

@@ -10,6 +10,7 @@ import {
   FiZap 
 } from "react-icons/fi";
 import { useAuth } from "@/contexts/auth-context";
+import { UserRoleEnum } from "@/lib/constants";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -45,22 +46,43 @@ export default function DashboardPage() {
           </Link>
         </Card>
 
-        {/* Visitors Card */}
-        <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-          <div className="flex items-center space-x-2 mb-2">
-            <FiUsers className="h-4 w-4 text-gray-700" />
-            <h3 className="text-sm font-semibold text-gray-800">Visitors</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-            See a list of visitors to your website and start a conversation.
-          </p>
-          <Link
-            href="/dashboard/visitors"
-            className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
-          >
-            View visitors list
-          </Link>
-        </Card>
+        {/* Visitors Card - Only for CLIENT_AGENT */}
+        {user?.role === UserRoleEnum.CLIENT_AGENT && (
+          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <FiUsers className="h-4 w-4 text-gray-700" />
+              <h3 className="text-sm font-semibold text-gray-800">Visitors</h3>
+            </div>
+            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+              See a list of visitors to your website and start a conversation.
+            </p>
+            <Link
+              href="/dashboard/visitors"
+              className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
+            >
+              View visitors list
+            </Link>
+          </Card>
+        )}
+
+        {/* Team Card - Only for CLIENT_ADMIN */}
+        {user?.role === UserRoleEnum.CLIENT_ADMIN && (
+          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
+            <div className="flex items-center space-x-2 mb-2">
+              <FiUsers className="h-4 w-4 text-gray-700" />
+              <h3 className="text-sm font-semibold text-gray-800">Team</h3>
+            </div>
+            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+              Manage your team members and their roles in the organization.
+            </p>
+            <Link
+              href="/dashboard/setting/agents"
+              className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
+            >
+              Manage team
+            </Link>
+          </Card>
+        )}
 
         {/* Analytics Card */}
         <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">

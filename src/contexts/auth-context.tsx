@@ -68,13 +68,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.removeItem('refreshToken');
         }
       } catch (error) {
-        console.error('Failed to get user info:', error);
         // Clear invalid tokens
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
     } finally {
@@ -108,7 +106,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             return true;
           }
         } catch (error) {
-          console.error('Failed to get user info after login:', error);
           // Clear tokens if user info fetch fails
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
@@ -117,7 +114,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return false;
     } catch (error) {
-      console.error('Login error:', error);
       // Don't throw the error, just return false
       return false;
     } finally {
@@ -133,10 +129,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (storedRefreshToken) {
         api.post('/auth/logout', {
           refresh_token: storedRefreshToken
-        }).catch(console.error);
+        });
       }
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       // Clear local state and tokens
       setUser(null);
@@ -173,7 +168,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(userData);
           }
         } catch (userError) {
-          console.error('Failed to get user info after token refresh:', userError);
         }
         
         return true;
@@ -186,7 +180,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
     } catch (error) {
-      console.error('Token refresh failed:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       setUser(null);

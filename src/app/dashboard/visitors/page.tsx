@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import VisitorDropdown from './components/visitor-dropdown';
-import VisitorHeader from './components/visitor-header';
 import VisitorSearch from './components/visitor-search';
-import VisitorTable from './components/visitor-table';
 import GroupedVisitorDisplay from './components/grouped-visitor-display';
 import { useVisitors } from './hooks/use-visitors';
 import { useAuth } from '@/contexts/auth-context';
 import { useVisitorActions } from '@/contexts/visitor-actions';
-import { useGlobalChat } from '@/contexts/global-chat-context';
 import { ClientAgentOnly } from '@/components/role-guard';
 // No local notifications needed - global system handles everything
 
@@ -43,10 +39,8 @@ const VisitorPage = () => {
   const { setTakeVisitorHandler } = useVisitorActions();
   const [groupBy, setGroupBy] = useState('Activity');
   const {
-    visitors,
     loading,
     searchTerm,
-    allVisitors,
     incomingChats,
     servedVisitors,
     setSearchTerm,
@@ -67,10 +61,6 @@ const VisitorPage = () => {
     takeVisitorById(visitor.visitor_id);
   };
 
-  // Wrapper function to handle chat ended - refresh visitors
-  const handleChatEnded = () => {
-    fetchVisitors();
-  };
 
   // Enhanced visitor click handler that auto-takes visitor
   const handleVisitorClickEnhanced = (visitor: Visitor) => {

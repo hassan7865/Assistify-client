@@ -9,17 +9,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatConversation } from '../hooks/use-chat-history';
-import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
+import { getCountryFlag, getBrowserIcon, getOSIcon, getDeviceIcon } from '@/lib/visitor-icons';
 
 interface HistorySidebarProps {
   conversation: ChatConversation;
   onClose: () => void;
+  isClosing?: boolean;
 }
 
-const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }) => {
+const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, isClosing = false }) => {
   const [activeTab, setActiveTab] = useState('transcript');
   const [name, setName] = useState(conversation.metadata?.name || '');
   const [email, setEmail] = useState(conversation.metadata?.email || '');
+  const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
 
   const formatTime = (timestamp: string) => {
@@ -66,7 +68,16 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
   };
 
   return (
-    <div className="fixed right-0 top-0 h-screen w-[420px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col">
+    <div className="h-screen w-full bg-white flex flex-col relative">
+      {/* Loading Overlay - Only show when closing */}
+      {isClosing && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span className="text-sm text-gray-600">Closing...</span>
+          </div>
+        </div>
+      )}
       {/* Tabs Container */}
       <div className="flex-1 flex flex-col min-h-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
@@ -101,10 +112,10 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
               {activeTab === 'userinfo' && (
                 <Button 
                   variant="destructive"
-                  className="h-6 w-6 bg-red-600 hover:bg-red-700 text-white rounded-sm text-xs px-1"
-                  title="Ban visitor"
+                  className="bg-red-600 hover:bg-red-700 h-7 rounded-none text-white text-xs px-1"
+               
                 >
-                  Ban
+                  Ban Visitor
                 </Button>
               )}
               <Button 
@@ -137,7 +148,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Add name"
-                        className="h-8 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                        className="h-7 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
                       />
                       
                       <Input 
@@ -145,7 +156,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Add email"
-                        className="h-8 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                        className="h-7 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
                       />
                       
                       <Input 
@@ -153,17 +164,20 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="Add phone number"
-                        className="h-8 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
-                      />
-                      
-                      <Textarea 
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Add visitor notes"
-                        rows={3}
-                        className="resize-none h-20 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                        className="h-7 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
                       />
                     </div>
+                  </div>
+                  
+                  {/* Notes - Full Width */}
+                  <div className="mt-3">
+                    <Textarea 
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Add visitor notes"
+                      rows={3}
+                      className="resize-none h-16 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -250,9 +264,12 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose }
                     </div>
                   )}
                   {conversation.metadata?.device_type && (
-                    <div className="flex justify-between text-xs">
+                    <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Device:</span>
-                      <span className="font-medium">{conversation.metadata.device_type}</span>
+                      <div className="flex items-center gap-1">
+                        {getDeviceIcon(conversation.metadata.device_type, conversation.metadata.user_agent, 'h-3 w-3')}
+                        <span className="font-medium">{conversation.metadata.device_type}</span>
+                      </div>
                     </div>
                   )}
                   {conversation.metadata?.user_agent && (

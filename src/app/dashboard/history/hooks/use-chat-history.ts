@@ -109,7 +109,6 @@ export const useChatHistory = () => {
         setError('Failed to fetch chat history');
       }
     } catch (err: any) {
-      console.error('Error fetching chat history:', err);
       setError(err.response?.data?.detail || 'Failed to fetch chat history');
     } finally {
       setLoading(false);
@@ -126,7 +125,6 @@ export const useChatHistory = () => {
         throw new Error('Failed to fetch conversation details');
       }
     } catch (err: any) {
-      console.error('Error fetching conversation details:', err);
       throw err;
     }
   }, []);

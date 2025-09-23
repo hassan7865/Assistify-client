@@ -24,7 +24,6 @@ class EventEmitter {
       try {
         callback(...args);
       } catch (error) {
-        console.error(`Error in event callback for ${event}:`, error);
       }
     });
   }

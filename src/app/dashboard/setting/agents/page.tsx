@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Loader2, User, Mail, Calendar } from "lucide-react";
+import {
+  Search,
+  Loader2,
+  User,
+  Mail,
+  Calendar,
+  Check,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,15 +50,12 @@ const AgentsPage = () => {
   const fetchAgents = async () => {
     try {
       setLoading(true);
-      const response = await api.get(
-        `/auth/agents/${user?.client_id}`
-      );
+      const response = await api.get(`/auth/agents/${user?.client_id}`);
 
       if (response.status === 200) {
         setAgents(response.data.agents || []);
       }
     } catch (error) {
-      console.error("Failed to fetch agents:", error);
     } finally {
       setLoading(false);
     }
@@ -83,6 +87,23 @@ const AgentsPage = () => {
     }
   };
 
+  const getStatusColor = (agent: Agent) => {
+    // Mock status for demo - in real app this would come from API
+    const statuses = ["online", "offline", "away"];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+    switch (status) {
+      case "online":
+        return "bg-green-500";
+      case "away":
+        return "bg-yellow-500";
+      default:
+        return "bg-gray-400";
+    }
+  };
+
+  const enabledAgents = agents.filter((agent) => true); // All agents are enabled in current API
+
   const filteredAgents = agents.filter(
     (agent) =>
       agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -102,50 +123,31 @@ const AgentsPage = () => {
   }
 
   return (
-    <div className="p-6 bg-white min-h-screen">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900">Team Agents</h1>
+    <div className="p-4 bg-white min-h-screen">
+      {/* Top Control Bar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+            <Input
+              type="text"
+              placeholder="Search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-7 w-48 h-7 text-xs border-gray-300"
+            />
+          </div>
+        </div>
 
+        <div className="flex items-center gap-4">
           {/* Only show Create Agent button for CLIENT_ADMIN users */}
           {user?.role === UserRoleEnum.CLIENT_ADMIN && (
             <CreateAgentDialog onAgentCreated={handleAgentCreated} />
           )}
-        </div>
 
-        <p className="text-gray-600 mt-1">
-          {user?.role === UserRoleEnum.CLIENT_ADMIN
-            ? "Manage your team members and their roles"
-            : "View your team members and their roles"}
-        </p>
-      </div>
-
-      {/* Search and Stats */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search agents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-64"
-            />
-          </div>
-          <span className="text-sm text-gray-600">
-            {filteredAgents.length} of {agents.length} agents
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="text-sm text-gray-600">Total Agents</div>
-            <div className="text-2xl font-semibold text-gray-900">
-              {agents.length}
-            </div>
-          </div>
+           <span className="text-xs text-gray-600">
+             {enabledAgents.length} enabled / {agents.length} agents
+           </span>
         </div>
       </div>
 
@@ -177,71 +179,73 @@ const AgentsPage = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-50">
-                <TableHead className="font-semibold text-gray-900">
-                  Agent
+                <TableHead className="text-xs font-medium text-gray-900 py-2">
+                  Display name
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">
-                  Role
+                <TableHead className="text-xs font-medium text-gray-900 py-2">
+                  Name
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">
+                <TableHead className="text-xs font-medium text-gray-900 py-2">
                   Email
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">
-                  Created
+                <TableHead className="text-xs font-medium text-gray-900 py-2">
+                  Support email
                 </TableHead>
-                <TableHead className="font-semibold text-gray-900">
-                  Last Updated
+                <TableHead className="text-xs font-medium text-gray-900 py-2">
+                  Role
+                </TableHead>
+                <TableHead className="text-xs font-medium text-gray-900 py-2">
+                  Enabled
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAgents.map((agent) => (
                 <TableRow key={agent.id} className="hover:bg-gray-50">
-                  <TableCell className="font-medium text-gray-900">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-gray-600" />
-                      </div>
-                      <div>
-                        <div className="font-medium">{agent.name}</div>
-                        <div className="text-sm text-gray-500">
-                          ID: {agent.id.substring(0, 8)}...
-                        </div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      className={`px-3 py-1 text-sm font-medium border ${getRoleColor(
-                        agent.role
-                      )}`}
-                    >
-                      {agent.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-gray-600">
+                  <TableCell className="py-2">
                     <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      {agent.email}
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 w-3 h-3"
+                      />
+                      <div
+                        className={`w-2 h-2 rounded-full ${getStatusColor(
+                          agent
+                        )}`}
+                      ></div>
+                      <span className="text-xs text-gray-900">
+                        {agent.name}
+                      </span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      {formatDate(agent.created_at)}
-                    </div>
+                  <TableCell className="text-xs text-gray-600 py-2">
+                    {agent.name}
                   </TableCell>
-                  <TableCell className="text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      {formatDate(agent.updated_at)}
-                    </div>
+                  <TableCell className="text-xs text-gray-600 py-2">
+                    {agent.email}
+                  </TableCell>
+                  <TableCell className="text-xs text-gray-600 py-2">
+                    {/* Support email would come from API if available */}
+                  </TableCell>
+                  <TableCell className="text-xs text-gray-600 py-2">
+                    {agent.role}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <Check className="w-4 h-4 text-blue-600" />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         )}
+      </div>
+
+      {/* Bottom Message */}
+      <div className="text-center mt-6">
+        <p className="text-xs text-gray-600">
+          Add agents to serve more visitors, respond faster to chats, and
+          improve customer satisfaction.
+        </p>
       </div>
     </div>
   );

@@ -79,7 +79,6 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
       
       }
     } catch (error: any) {
-      console.error('Failed to create agent:', error);
       const errorMessage = error.response?.data?.detail || 'Failed to create agent';
     } finally {
       setCreateLoading(false);
@@ -107,33 +106,33 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="flex items-center justify-center gap-2">
-          <Plus className="h-4 w-4" />
+        <Button className="flex items-center rounded-none justify-center gap-2 bg-blue-600 hover:bg-blue-600/90 text-xs h-7 px-3">
+          <Plus className="h-3 w-3" />
           {variant === 'empty-state' ? 'Create Your First Agent' : 'Create Agent'}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Agent</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-sm font-bold">Create New Agent</DialogTitle>
+          <DialogDescription className="text-xs text-gray-600">
             Add a new team member to handle customer chats. They will receive an email with login credentials.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
+        <div className="grid gap-3 py-3">
+          <div className="grid grid-cols-4 items-center gap-3">
+            <Label htmlFor="name" className="text-right text-xs font-medium">
               Name
             </Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="col-span-3"
+              className="col-span-3 h-7 text-xs border-gray-300 focus:border-gray-400"
               placeholder="Full name"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="email" className="text-right">
+          <div className="grid grid-cols-4 items-center gap-3">
+            <Label htmlFor="email" className="text-right text-xs font-medium">
               Email
             </Label>
             <Input
@@ -141,12 +140,12 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="col-span-3"
+              className="col-span-3 h-7 text-xs border-gray-300 focus:border-gray-400"
               placeholder="email@example.com"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="password" className="text-right">
+          <div className="grid grid-cols-4 items-center gap-3">
+            <Label htmlFor="password" className="text-right text-xs font-medium">
               Password
             </Label>
             <Input
@@ -154,12 +153,12 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
               type="password"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="col-span-3"
+              className="col-span-3 h-7 text-xs border-gray-300 focus:border-gray-400"
               placeholder="Minimum 8 characters"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="confirmPassword" className="text-right">
+          <div className="grid grid-cols-4 items-center gap-3">
+            <Label htmlFor="confirmPassword" className="text-right text-xs font-medium">
               Confirm
             </Label>
             <Input
@@ -167,7 +166,7 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
               type="password"
               value={formData.confirmPassword}
               onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-              className="col-span-3"
+              className="col-span-3 h-7 text-xs border-gray-300 focus:border-gray-400"
               placeholder="Confirm password"
             />
           </div>
@@ -178,6 +177,7 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
             variant="outline"
             onClick={() => setIsOpen(false)}
             disabled={createLoading}
+            className="text-xs h-7 px-3 border-gray-300"
           >
             Cancel
           </Button>
@@ -185,10 +185,11 @@ const CreateAgentDialog: React.FC<CreateAgentDialogProps> = ({ onAgentCreated, v
             type="button"
             onClick={handleCreateAgent}
             disabled={createLoading}
+            className="text-xs h-7 px-3 bg-blue-600 hover:bg-blue-700"
           >
             {createLoading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 Creating...
               </>
             ) : (

@@ -100,14 +100,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // Mark visitor messages as seen when they're displayed
   useEffect(() => {
     if (isConnected && chatMessages.length > 0) {
-      // Find the last visitor message that hasn't been marked as seen
-      const lastVisitorMessage = chatMessages
-        .filter(msg => msg.sender === 'visitor' && !msg.status)
-        .pop();
+      // Send message_seen for visitor messages that are delivered but not read
+      const unseenVisitorMessages = chatMessages
+        .filter(msg => msg.sender === 'visitor' && msg.status === 'delivered');
       
-      if (lastVisitorMessage) {
-        sendMessageSeen(lastVisitorMessage.id);
-      }
+      // Send seen notification for each delivered message
+      unseenVisitorMessages.forEach(msg => {
+        sendMessageSeen(msg.id);
+      });
     }
   }, [chatMessages, isConnected, sendMessageSeen]);
 
@@ -157,16 +157,36 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     </span>
                   </div>
                 )}
-                <div className="text-xs text-gray-900 whitespace-pre-wrap max-w-48 break-words">
+                <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
+                  message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
+                }`}>
                   {message.message}
                 </div>
                 {message.sender === 'agent' && (
                   <div className="flex justify-end mt-1">
-                    <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
+                    {message.status === 'read' ? (
+                      // Double checkmarks for read messages
+                      <div className="flex">
+                        <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <svg className="w-3 h-3 text-blue-500 -ml-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
                       </div>
+                    ) : message.status === 'delivered' ? (
+                      // Single checkmark for delivered messages
+                      <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      // Empty circle for pending messages
+                      <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                      </svg>
                     )}
+                  </div>
+                )}
                 {isLastInGroup && (
                   <div className="border-b border-gray-200 border-dashed my-2"></div>
                         )}

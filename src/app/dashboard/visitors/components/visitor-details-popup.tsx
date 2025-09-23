@@ -51,7 +51,7 @@ interface ChatMessage {
   sender_id?: string;
   message: string;
   timestamp: string;
-  status?: 'sent' | 'delivered' | 'read';
+  status?: 'delivered' | 'read';
 }
 
 const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({ 
@@ -91,14 +91,9 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
         <div className="flex items-center gap-2">
           {getCountryFlag(visitor.metadata?.country)}
           <span className="text-xs font-medium text-white">Visitor {visitor.visitor_id}</span>
-          <div className="flex items-center gap-1">
-            <Smartphone className="h-3 w-3 text-green-500" />
-            <Monitor className="h-3 w-3 text-white" />
-            <Target className="h-3 w-3 text-white" />
-          </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="text-xs text-white hover:bg-gray-700 px-2 py-1">
+          <Button variant="ghost" size="sm" className="text-xs text-white hover:bg-gray-300 px-2 py-1">
             Actions
             <ChevronDown className="h-2 w-2 ml-1" />
           </Button>

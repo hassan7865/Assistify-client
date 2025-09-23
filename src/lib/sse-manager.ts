@@ -56,11 +56,9 @@ class SSEManager {
             try {
               listener(data);
             } catch (error) {
-              console.error('Error in SSE listener:', error);
             }
           });
         } catch (error) {
-          console.error('Error parsing SSE message:', error);
         }
       };
 
@@ -81,7 +79,6 @@ class SSEManager {
 
       return true;
     } catch (error) {
-      console.error('Failed to create SSE connection:', error);
       this.isConnected = false;
       this.currentAgentId = null;
       return false;

@@ -34,7 +34,7 @@ interface VisitorInfoPanelProps {
     sender_id?: string;
     message: string;
     timestamp: string;
-    status?: 'read';
+    status?: 'delivered' | 'read';
   }>;
 }
 
@@ -76,40 +76,42 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     <div className="flex flex-col bg-white overflow-y-auto h-full">
       <div className="p-2 space-y-3">
         {/* Visitor Avatar and Details */}
-        <div className="flex flex-col items-center space-y-2">
-          <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-            <User className="w-5 h-5 text-gray-600" />
+        <div className="space-y-2">
+          <div className="flex items-start space-x-3">
+            <div className="w-12 h-12 bg-gray-300 rounded-lg flex items-center justify-center flex-shrink-0">
+              <User className="w-6 h-6 text-gray-600" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <input
+                type="text"
+                placeholder="Add name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="email"
+                placeholder="Add email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="tel"
+                placeholder="Add phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
-          <div className="w-full space-y-2">
-            <input
-              type="text"
-              placeholder="Add name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
-            <input
-              type="email"
-              placeholder="Add email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
-            <input
-              type="tel"
-              placeholder="Add phone number"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-            />
-            <textarea
-              placeholder="Add visitor notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none"
-            />
-          </div>
+          <textarea
+            placeholder="Add visitor notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none"
+          />
         </div>
 
 
@@ -156,12 +158,17 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
               <span>{visitor.metadata?.os || 'Unknown'}</span>
             </div>
             <div><span className="font-medium">Device:</span> {visitor.metadata?.device_type || 'Unknown'}</div>
-            <div><span className="font-medium">Referrer:</span> {visitor.metadata?.referrer || 'Direct'}</div>
-            <div><span className="font-medium">Page URL:</span> 
-              <div className="break-all text-xs">{visitor.metadata?.page_url || 'Unknown'}</div>
+            <div className="break-words">
+              <span className="font-medium">Referrer:</span> 
+              <div className="break-all text-xs mt-1">{visitor.metadata?.referrer || 'Direct'}</div>
             </div>
-            <div><span className="font-medium">User Agent:</span> 
-              <div className="break-all text-xs">{visitor.metadata?.user_agent || 'Unknown'}</div>
+            <div className="break-words">
+              <span className="font-medium">Page URL:</span> 
+              <div className="break-all text-xs mt-1">{visitor.metadata?.page_url || 'Unknown'}</div>
+            </div>
+            <div className="break-words">
+              <span className="font-medium">User Agent:</span> 
+              <div className="break-all text-xs mt-1">{visitor.metadata?.user_agent || 'Unknown'}</div>
             </div>
           </div>
         </div>

@@ -60,22 +60,3 @@ export const ClientAgentOnly: React.FC<{ children: React.ReactNode }> = ({ child
     {children}
   </RoleGuard>
 );
-
-export const ClientAdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RoleGuard allowedRoles={[UserRoleEnum.CLIENT_ADMIN]}>
-    {children}
-  </RoleGuard>
-);
-
-export const AdminOrAgent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RoleGuard allowedRoles={[UserRoleEnum.CLIENT_ADMIN, UserRoleEnum.CLIENT_AGENT]}>
-    {children}
-  </RoleGuard>
-);
-
-// Additional convenience components for specific use cases
-export const SettingsAccess: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RoleGuard allowedRoles={[UserRoleEnum.CLIENT_ADMIN, UserRoleEnum.CLIENT_AGENT]}>
-    {children}
-  </RoleGuard>
-);
