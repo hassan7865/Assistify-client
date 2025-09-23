@@ -3,9 +3,8 @@ import React from "react";
 import AppSidebar from "../Layout/app-sidebar";
 import Header from "../Layout/header";
 import { ProtectedRoute } from "@/components/protected-route";
-import { GlobalNotificationProvider } from "@/contexts/global-notifications";
 import { VisitorActionsProvider } from "@/contexts/visitor-actions";
-import GlobalNotificationDisplay from "./components/global-notification-display";
+import { VisitorRequestsProvider } from "@/contexts/visitor-requests";
 import VisitorMonitor from "./components/visitor-monitor";
 
 export default function DashboardLayout({
@@ -15,7 +14,7 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
-      <GlobalNotificationProvider>
+      <VisitorRequestsProvider>
         <VisitorActionsProvider>
           <SidebarProvider defaultOpen={true}>
             <div className="flex h-screen w-full overflow-hidden">
@@ -24,9 +23,6 @@ export default function DashboardLayout({
               <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
                 <Header />
                 <div className="flex flex-col flex-1 overflow-hidden">
-                  {/* Global Notifications - Visible on all dashboard pages */}
-                  <GlobalNotificationDisplay />
-                  
                   {/* Global Visitor Monitor - Runs regardless of current page */}
                   <VisitorMonitor />
                   
@@ -39,7 +35,7 @@ export default function DashboardLayout({
             </div>
           </SidebarProvider>
         </VisitorActionsProvider>
-      </GlobalNotificationProvider>
+      </VisitorRequestsProvider>
     </ProtectedRoute>
   );
 }

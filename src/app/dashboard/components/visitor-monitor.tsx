@@ -2,18 +2,17 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { useGlobalNotifications } from '@/contexts/global-notifications';
+import { useVisitorRequests } from '@/contexts/visitor-requests';
 import { UserRoleEnum } from '@/lib/constants';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 import { FULL_API_BASE_URL } from '@/lib/axios';
 import SSEManager from '@/lib/sse-manager';
-import { Howl } from 'howler';
 
 const VisitorMonitor: React.FC = () => {
   const { user } = useAuth();
-  const { addNotification, removeNotificationsByVisitorId } = useGlobalNotifications();
+  const { addRequest, removeRequest } = useVisitorRequests();
   const sseManager = SSEManager.getInstance();
-  const soundRef = useRef<Howl | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
 
   // Get current agent from user context (same logic as useVisitors hook)
@@ -27,37 +26,65 @@ const VisitorMonitor: React.FC = () => {
     return null;
   }, [user]);
 
-  // Play notification sound using Howler
-  const playNotificationSound = useCallback(() => {
-    if (soundRef.current) {
-      soundRef.current.play();
-    }
+  // Initialize audio element
+  const initializeAudio = useCallback(() => {
+    if (audioRef.current) return; // Already initialized
+    
+    audioRef.current = new Audio('/notification-sound.mp3');
+    audioRef.current.volume = 0.6;
+    audioRef.current.preload = 'auto';
+    
+    audioRef.current.addEventListener('canplaythrough', () => {
+      console.log('Notification sound loaded successfully');
+    });
+    
+    audioRef.current.addEventListener('error', (error) => {
+      console.error('Failed to load notification sound:', error);
+    });
   }, []);
 
+  // Play notification sound using native HTML5 Audio
+  const playNotificationSound = useCallback(() => {
+    if (audioRef.current) {
+      try {
+        // Reset to beginning and play
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch((error) => {
+          console.error('Failed to play notification sound:', error);
+        });
+      } catch (error) {
+        console.error('Failed to play notification sound:', error);
+      }
+    } else {
+      // Audio not initialized yet, initialize it
+      initializeAudio();
+      // Try to play after a short delay to allow initialization
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch((error) => {
+            console.error('Failed to play notification sound after initialization:', error);
+          });
+        }
+      }, 100);
+    }
+  }, [initializeAudio]);
 
 
-  const createNotification = useCallback((type: string, visitorId: string, message: string, visitorName?: string, visitorStatus?: string) => {
-    addNotification({
-      type,
-      message,
-      visitor_id: visitorId,
-      visitor_name: visitorName,
-      visitor_status: visitorStatus,
-    });
-  }, [addNotification]);
 
   // SSE message handler
   const handleSSEMessage = useCallback((data: any) => {
+    console.log('SSE message received:', data);
+    
     if (data.type == "new_visitor") {
       const visitorId = data.visitor_id;
+      console.log('New visitor detected:', visitorId);
       
-      createNotification(
-        "new_visitor",
-        visitorId,
-        `New visitor: ${data.metadata?.name || visitorId}`,
-        data.metadata?.name,
-        "new"
-      );
+      // Add visitor request instead of notification
+      addRequest({
+        visitor_id: visitorId,
+        metadata: data.metadata
+      });
 
       // Emit global event to notify other components
       globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
@@ -67,14 +94,15 @@ const VisitorMonitor: React.FC = () => {
       });
 
       // Play sound for new visitor
+      console.log('Attempting to play notification sound...');
       playNotificationSound();
     } else if (data.type == "visitor_assigned") {
       const visitorId = data.visitor_id;
       const assignedAgentId = data.assigned_agent_id;
       const currentAgent = getCurrentAgent();
       
-      // Remove any existing notifications for this visitor (like "new visitor" notifications)
-      removeNotificationsByVisitorId(visitorId);
+      // Remove visitor request when assigned
+      removeRequest(visitorId);
       
       // Emit global event to notify other components (especially useVisitors hook)
       globalEventEmitter.emit(EVENTS.VISITOR_TAKEN, {
@@ -82,19 +110,38 @@ const VisitorMonitor: React.FC = () => {
         assigned_agent_id: assignedAgentId,
         timestamp: new Date().toISOString()
       });
-
-      // Only show notification if visitor was assigned to current agent
-      if (currentAgent && assignedAgentId === currentAgent.id) {
-        createNotification(
-          "success",
-          visitorId,
-          `Visitor assigned to you successfully`,
-          undefined,
-          "assigned"
-        );
-      }
     }
-  }, [getCurrentAgent, createNotification, removeNotificationsByVisitorId, playNotificationSound]);
+  }, [getCurrentAgent, addRequest, removeRequest, playNotificationSound]);
+
+  // Initialize audio immediately when component mounts
+  useEffect(() => {
+    initializeAudio();
+    
+    // Add a global click handler to enable audio context (for autoplay restrictions)
+    const enableAudio = () => {
+      if (audioRef.current) {
+        // Try to play and immediately pause to enable audio context
+        try {
+          audioRef.current.play().then(() => {
+            audioRef.current?.pause();
+          }).catch(() => {
+            // Ignore autoplay errors
+          });
+        } catch (error) {
+          // Ignore autoplay errors
+        }
+      }
+    };
+    
+    // Enable audio on first user interaction
+    document.addEventListener('click', enableAudio, { once: true });
+    document.addEventListener('keydown', enableAudio, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', enableAudio);
+      document.removeEventListener('keydown', enableAudio);
+    };
+  }, [initializeAudio]);
 
   // Initialize SSE connection when component mounts
   useEffect(() => {
@@ -103,41 +150,29 @@ const VisitorMonitor: React.FC = () => {
       const currentAgent = getCurrentAgent();
       
       if (currentAgent?.id) {
-        // Initialize Howler sound
-        soundRef.current = new Howl({
-          src: ['/notification-sound.mp3'],
-          volume: 0.6,
-          preload: true,
-          html5: true, // Use HTML5 audio for better compatibility
-          onload: () => {
-            // Sound loaded successfully
-          },
-          onloaderror: () => {
-            // Sound failed to load
-          }
-        });
-
         // Add listener to global SSE manager
         sseManager.addListener(handleSSEMessage);
 
-        // Small delay to ensure auth is fully loaded, then connect
-        const timer = setTimeout(() => {
-          sseManager.connect(currentAgent.id, FULL_API_BASE_URL);
-        }, 1000);
+        // Connect immediately - no delay needed
+        sseManager.connect(currentAgent.id, FULL_API_BASE_URL);
 
         return () => {
-          clearTimeout(timer);
           sseManager.removeListener(handleSSEMessage);
-          
-          // Clean up Howler sound
-          if (soundRef.current) {
-            soundRef.current.unload();
-            soundRef.current = null;
-          }
         };
       }
     }
-  }, [user?.role, user?.user_id]); // Depend on role and user_id to handle user changes
+  }, [user?.role, user?.user_id, getCurrentAgent, handleSSEMessage]); // Depend on role and user_id to handle user changes
+
+  // Cleanup audio when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
 
   // This component doesn't render anything visible

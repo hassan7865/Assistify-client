@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/auth-context";
-import { useGlobalNotifications } from "@/contexts/global-notifications";
-import { useVisitorActions } from "@/contexts/visitor-actions";
+import { useGlobalChat } from "@/contexts/global-chat-context";
 import { globalEventEmitter, EVENTS } from "@/lib/event-emitter";
 
 interface Visitor {
@@ -31,11 +30,8 @@ interface Visitor {
 
 export const useVisitors = () => {
   const { user } = useAuth();
-  const { addNotification: addGlobalNotification, removeNotificationsByVisitorId } = useGlobalNotifications();
-  const { showSuccessNotification } = useVisitorActions();
+  const { openChat, setCurrentAgent } = useGlobalChat();
   
-  const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [pendingVisitors, setPendingVisitors] = useState<Visitor[]>([]);
   const [activeVisitors, setActiveVisitors] = useState<Visitor[]>([]);
@@ -110,20 +106,8 @@ export const useVisitors = () => {
     }
   }, [CLIENT_ID]);
 
-  // Success handler using global notifications
-  const handleTakeVisitorSuccess = useCallback((visitorId: string, visitorName?: string) => {
-    // Remove any existing notifications for this visitor immediately
-    removeNotificationsByVisitorId(visitorId);
-    
-    // Use global notification system for success message
-    const displayName = visitorName || visitorId;
-    showSuccessNotification(visitorId, displayName);
 
-    // Refresh immediately for the agent who took the visitor
-    fetchVisitors();
-  }, [showSuccessNotification, removeNotificationsByVisitorId, fetchVisitors]);
-
-  const takeVisitorById = useCallback(async (visitorId: string) => {
+  const takeVisitorById = useCallback(async (visitorId: string, skipRefresh = false) => {
     if (!CURRENT_AGENT?.id) return;
 
     if (pendingVisitorOperations.current.has(visitorId)) {
@@ -138,59 +122,70 @@ export const useVisitors = () => {
         visitor_id: visitorId,
       });
 
-
       if (response.data.success) {
-        const visitor = visitors.find(v => v.visitor_id === visitorId);
-        const visitorName = visitor?.metadata?.name || visitorId;
+        // Get the current visitor data from our state
+        const currentVisitor = visitors.find(v => v.visitor_id === visitorId);
         
-        handleTakeVisitorSuccess(visitorId, visitorName);
-      } else {
-        // Use global notification for errors
-        addGlobalNotification({
-          type: "error",
-          message: response.data.message || "Failed to assign visitor",
+        // Create updated visitor with agent info
+        const updatedVisitor = {
+          ...currentVisitor,
           visitor_id: visitorId,
-          visitor_status: "error"
+          agent_id: CURRENT_AGENT.id,
+          agent_name: CURRENT_AGENT.name,
+          status: "active",
+          // Use API response data if available, otherwise keep current data
+          ...(response.data.visitor || {})
+        };
+        
+        // Remove visitor from pending list if it exists there
+        setPendingVisitors(prev => prev.filter(v => v.visitor_id !== visitorId));
+        
+        // Add visitor to active list
+        setActiveVisitors(prev => {
+          // Check if visitor already exists in active list
+          const exists = prev.some(v => v.visitor_id === visitorId);
+          if (exists) {
+            // Update existing visitor
+            return prev.map(v => v.visitor_id === visitorId ? updatedVisitor : v);
+          } else {
+            // Add new visitor
+            return [...prev, updatedVisitor];
+          }
         });
+        
+        // Update the main visitors list
+        setVisitors(prev => prev.map(v => 
+          v.visitor_id === visitorId 
+            ? updatedVisitor
+            : v
+        ));
+        
+        // If skipRefresh is false, open chat with the updated visitor data
+        if (!skipRefresh) {
+          openChat(updatedVisitor);
+        }
+      } else {
+        console.error("Failed to assign visitor:", response.data.message);
       }
     } catch (error) {
       console.error("Error taking visitor by ID:", error);
-      
-      // Use global notification for network errors
-      addGlobalNotification({
-        type: "error",
-        message: "Failed to assign visitor - network error",
-        visitor_id: visitorId,
-        visitor_status: "error"
-      });
     } finally {
       setTimeout(() => {
         pendingVisitorOperations.current.delete(visitorId);
       }, 500);
     }
-  }, [CURRENT_AGENT?.id, visitors, handleTakeVisitorSuccess, addGlobalNotification]);
+  }, [CURRENT_AGENT?.id, visitors, fetchVisitors]);
 
   const removeVisitor = useCallback((visitorId: string) => {
     setVisitors((prev) => prev.filter((v) => v.visitor_id !== visitorId));
     setPendingVisitors((prev) => prev.filter((v) => v.visitor_id !== visitorId));
     setActiveVisitors((prev) => prev.filter((v) => v.visitor_id !== visitorId));
-
-    if (selectedVisitor?.visitor_id === visitorId) {
-      setSelectedVisitor(null);
-      setIsPopupOpen(false);
-    }
-  }, [selectedVisitor]);
+  }, []);
 
 
   const handleVisitorClick = useCallback((visitor: Visitor) => {
-    setSelectedVisitor(visitor);
-    setIsPopupOpen(true);
-  }, []);
-
-  const closePopup = useCallback(() => {
-    setIsPopupOpen(false);
-    setSelectedVisitor(null);
-  }, []);
+    openChat(visitor);
+  }, [openChat]);
 
   const filterVisitors = useCallback((visitorList: Visitor[]) => {
     if (!searchTerm.trim()) return visitorList;
@@ -211,11 +206,6 @@ export const useVisitors = () => {
   const incomingChats = filterVisitors(pendingVisitors);
   const servedVisitors = filterVisitors(activeVisitors);
 
-  const activeWebsiteVisitors = filterVisitors(pendingVisitors).filter((v) => {
-    const isActive = v.status && 
-      ["active", "ACTIVE", "online", "ONLINE"].includes(v.status.toLowerCase());
-    return isActive;
-  });
 
 
 
@@ -225,6 +215,8 @@ export const useVisitors = () => {
       return;
     }
 
+    // Set current agent in global context
+    setCurrentAgent(CURRENT_AGENT);
 
     // Fetch initial visitors data
     fetchVisitors();
@@ -232,7 +224,7 @@ export const useVisitors = () => {
     return () => {
       pendingVisitorOperations.current.clear();
     };
-  }, [CURRENT_AGENT?.id, CLIENT_ID, fetchVisitors]);
+  }, [CURRENT_AGENT?.id, CLIENT_ID, fetchVisitors, setCurrentAgent]);
 
 
   // Listen for global visitor events
@@ -247,7 +239,11 @@ export const useVisitors = () => {
     };
 
     const handleVisitorDisconnected = (visitorData: any) => {
-      // Refresh visitors data when a visitor disconnects
+      // Immediately remove visitor from local state
+      if (visitorData.visitor_id) {
+        removeVisitor(visitorData.visitor_id);
+      }
+      // Also refresh visitors data to ensure consistency
       fetchVisitors();
     };
 
@@ -262,11 +258,9 @@ export const useVisitors = () => {
       globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
       globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
     };
-  }, [fetchVisitors]);
+  }, [fetchVisitors, removeVisitor]);
 
   return {
-    selectedVisitor,
-    isPopupOpen,
     visitors,
     pendingVisitors,
     activeVisitors,
@@ -275,12 +269,10 @@ export const useVisitors = () => {
     allVisitors,
     incomingChats,
     servedVisitors,
-    activeWebsiteVisitors,
     setSearchTerm,
     fetchVisitors,
     removeVisitor,
     handleVisitorClick,
-    closePopup,
     takeVisitorById,
     CURRENT_AGENT,
   };

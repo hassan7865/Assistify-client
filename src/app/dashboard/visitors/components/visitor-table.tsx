@@ -72,14 +72,14 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
     switch (statusLower) {
       case 'assigned':
       case 'active':
-        return <Badge variant="secondary" className="bg-green-100 text-green-800">Active</Badge>;
+        return <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs px-1 py-0">Active</Badge>;
       case 'pending':
       case 'idle':
-        return <Badge variant="secondary" className="bg-teal-100 text-teal-800">Pending</Badge>;
+        return <Badge variant="secondary" className="bg-teal-100 text-teal-800 text-xs px-1 py-0">Pending</Badge>;
       case 'closed':
-        return <Badge variant="secondary" className="bg-muted text-muted-foreground">Closed</Badge>;
+        return <Badge variant="secondary" className="bg-muted text-muted-foreground text-xs px-1 py-0">Closed</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary" className="text-xs px-1 py-0">{status}</Badge>;
     }
   };
 
@@ -99,10 +99,11 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
   const renderActions = (visitor: Visitor) => {
     if (type === 'incoming' || type === 'active') {
       return (
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button 
             size="sm" 
-            onClick={() => onTakeVisitor(visitor)} 
+            onClick={() => onTakeVisitor(visitor)}
+            className="text-xs px-2 py-1 h-6"
           >
             Pick
           </Button>
@@ -114,7 +115,7 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
               size="sm" 
               variant="outline" 
               onClick={() => onRemoveVisitor(visitor.visitor_id)}
-              className="text-destructive border-destructive hover:bg-destructive/10"
+              className="text-destructive border-destructive hover:bg-destructive/10 text-xs px-2 py-1 h-6"
             >
               Remove
             </Button>
@@ -147,47 +148,47 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
 
   const renderTableRow = (visitor: Visitor) => {
     const cells = [
-      <TableCell key="visitor" className="font-medium">
+      <TableCell key="visitor" className="font-medium py-2">
         <div className="flex items-center gap-2">
-          {type === 'incoming' && <FiAlertCircle className="w-4 h-4 text-destructive" />}
+          {type === 'incoming' && <FiAlertCircle className="w-3 h-3 text-destructive" />}
           {type === 'served' && getStatusIcon(visitor.status)}
           {type === 'active' && getStatusIcon(visitor.status)}
           <span 
             className={cn(
-              "cursor-pointer hover:underline",
+              "cursor-pointer hover:underline text-xs",
               type === 'incoming' || type === 'active' ? 'text-blue-600' : 'text-foreground'
             )}
             onClick={() => onVisitorClick(visitor)}
           >
             {visitor.visitor_id?.substring(0, 8)}...
           </span>
-          <FiEye className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-foreground" />
+          <FiEye className="w-3 h-3 text-muted-foreground cursor-pointer hover:text-foreground" />
           {visitor.metadata?.name && (
             <span className="text-xs text-muted-foreground">({visitor.metadata.name})</span>
           )}
         </div>
       </TableCell>,
-      <TableCell key="online">{getOnlineStatus(visitor.started_at)}</TableCell>,
-      <TableCell key="status">{getStatusBadge(visitor.status)}</TableCell>
+      <TableCell key="online" className="text-xs py-2">{getOnlineStatus(visitor.started_at)}</TableCell>,
+      <TableCell key="status" className="py-2">{getStatusBadge(visitor.status)}</TableCell>
     ];
 
     if (type === 'served') {
       cells.splice(2, 0, 
-        <TableCell key="servedBy" className="text-foreground">
-                                  {visitor.agent_name || 'Unassigned'}
+        <TableCell key="servedBy" className="text-xs text-foreground py-2">
+          {visitor.agent_name || 'Unassigned'}
         </TableCell>
       );
     }
 
     cells.push(
-      <TableCell key="started" className="text-foreground">
+      <TableCell key="started" className="text-xs text-foreground py-2">
         {visitor.started_at ? new Date(visitor.started_at).toLocaleString() : 'N/A'}
       </TableCell>
     );
 
     if (type !== 'served') {
       cells.push(
-        <TableCell key="actions">
+        <TableCell key="actions" className="py-2">
           {renderActions(visitor)}
         </TableCell>
       );
@@ -214,25 +215,10 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
   };
 
   return (
-    <Card className="mb-8">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-foreground">
-            {title}
-            {type === 'incoming' && visitors.length > 0 && (
-              <Badge variant="destructive" className="ml-2">
-                {visitors.length} New
-              </Badge>
-            )}
-          </CardTitle>
-          <Badge variant={type === 'incoming' ? 'secondary' : 'outline'} className="text-sm">
-            Visitors: {visitorCount}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <Card className="mb-4">
+      <CardContent className="pt-3">
         {visitors.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground text-xs">
             {getEmptyMessage()}
           </div>
         ) : (
@@ -240,7 +226,7 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
             <TableHeader>
               <TableRow>
                 {renderTableHeaders().map(header => (
-                  <TableHead key={header.key} className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <TableHead key={header.key} className="text-xs font-medium text-muted-foreground uppercase tracking-wider py-2">
                     {header.label}
                   </TableHead>
                 ))}
@@ -248,7 +234,7 @@ const VisitorTable: React.FC<VisitorTableProps> = ({
             </TableHeader>
             <TableBody>
               {visitors.map((visitor) => (
-                <TableRow key={visitor.visitor_id} className="hover:bg-muted/50">
+                <TableRow key={visitor.visitor_id} className="hover:bg-muted/50 py-1">
                   {renderTableRow(visitor)}
                 </TableRow>
               ))}

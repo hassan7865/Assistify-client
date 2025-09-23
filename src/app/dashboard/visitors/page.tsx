@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import VisitorDropdown from './components/visitor-dropdown';
-import VisitorDetailsPopup from './components/visitor-details-popup';
 import VisitorHeader from './components/visitor-header';
 import VisitorSearch from './components/visitor-search';
 import VisitorTable from './components/visitor-table';
+import GroupedVisitorDisplay from './components/grouped-visitor-display';
 import { useVisitors } from './hooks/use-visitors';
 import { useAuth } from '@/contexts/auth-context';
 import { useVisitorActions } from '@/contexts/visitor-actions';
+import { useGlobalChat } from '@/contexts/global-chat-context';
 import { ClientAgentOnly } from '@/components/role-guard';
 // No local notifications needed - global system handles everything
 
@@ -40,22 +41,19 @@ interface Visitor {
 const VisitorPage = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { setTakeVisitorHandler } = useVisitorActions();
+  const [groupBy, setGroupBy] = useState('Activity');
   const {
-    selectedVisitor,
-    isPopupOpen,
     visitors,
     loading,
     searchTerm,
     allVisitors,
     incomingChats,
     servedVisitors,
-    activeWebsiteVisitors,
     setSearchTerm,
     fetchVisitors,
     takeVisitorById,
     removeVisitor,
     handleVisitorClick,
-    closePopup,
     CURRENT_AGENT
   } = useVisitors();
 
@@ -69,10 +67,140 @@ const VisitorPage = () => {
     takeVisitorById(visitor.visitor_id);
   };
 
-  // Wrapper function to handle chat ended - close popup and refresh visitors
+  // Wrapper function to handle chat ended - refresh visitors
   const handleChatEnded = () => {
-    closePopup();
     fetchVisitors();
+  };
+
+  // Enhanced visitor click handler that auto-takes visitor
+  const handleVisitorClickEnhanced = (visitor: Visitor) => {
+    // Take the visitor if not already taken, which will open the chat after moving to active list
+    if (!visitor.agent_id && CURRENT_AGENT?.id) {
+      takeVisitorById(visitor.visitor_id, false);
+    } else {
+      // If already taken, just open the chat
+      handleVisitorClick(visitor);
+    }
+  };
+
+  // Group visitors based on selected criteria
+  const getGroupedVisitors = () => {
+    const allVisitors = [...incomingChats, ...servedVisitors];
+    
+    switch (groupBy) {
+      case 'Activity':
+        return {
+          'incoming': incomingChats,
+          'served': servedVisitors
+        };
+      
+      case 'Country':
+        const countryGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const country = visitor.metadata?.country || 'Unknown';
+          if (!countryGroups[country]) {
+            countryGroups[country] = [];
+          }
+          countryGroups[country].push(visitor);
+        });
+        return countryGroups;
+      
+      case 'Serving agent':
+        const agentGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const agent = visitor.agent_name || 'Unassigned';
+          if (!agentGroups[agent]) {
+            agentGroups[agent] = [];
+          }
+          agentGroups[agent].push(visitor);
+        });
+        return agentGroups;
+      
+      case 'Browser':
+        const browserGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const browser = visitor.metadata?.browser || 'Unknown';
+          if (!browserGroups[browser]) {
+            browserGroups[browser] = [];
+          }
+          browserGroups[browser].push(visitor);
+        });
+        return browserGroups;
+      
+      case 'Page title':
+        const pageGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const pageTitle = visitor.metadata?.page_url?.split('/').pop() || 'Home';
+          if (!pageGroups[pageTitle]) {
+            pageGroups[pageTitle] = [];
+          }
+          pageGroups[pageTitle].push(visitor);
+        });
+        return pageGroups;
+      
+      case 'Page URL':
+        const urlGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const url = visitor.metadata?.page_url || 'Unknown';
+          if (!urlGroups[url]) {
+            urlGroups[url] = [];
+          }
+          urlGroups[url].push(visitor);
+        });
+        return urlGroups;
+      
+      case 'Department':
+        const deptGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const dept = 'General'; // Default department since not in metadata
+          if (!deptGroups[dept]) {
+            deptGroups[dept] = [];
+          }
+          deptGroups[dept].push(visitor);
+        });
+        return deptGroups;
+      
+      case 'Search engine':
+        const searchEngineGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const referrer = visitor.metadata?.referrer || '';
+          let searchEngine = 'Direct';
+          if (referrer.includes('google')) searchEngine = 'Google';
+          else if (referrer.includes('bing')) searchEngine = 'Bing';
+          else if (referrer.includes('yahoo')) searchEngine = 'Yahoo';
+          else if (referrer.includes('duckduckgo')) searchEngine = 'DuckDuckGo';
+          else if (referrer) searchEngine = 'Other';
+          
+          if (!searchEngineGroups[searchEngine]) {
+            searchEngineGroups[searchEngine] = [];
+          }
+          searchEngineGroups[searchEngine].push(visitor);
+        });
+        return searchEngineGroups;
+      
+      case 'Search term':
+        const searchTermGroups: { [key: string]: Visitor[] } = {};
+        allVisitors.forEach(visitor => {
+          const referrer = visitor.metadata?.referrer || '';
+          let searchTerm = 'Direct';
+          if (referrer.includes('q=')) {
+            const urlParams = new URLSearchParams(referrer.split('?')[1]);
+            searchTerm = urlParams.get('q') || 'Unknown';
+          }
+          
+          if (!searchTermGroups[searchTerm]) {
+            searchTermGroups[searchTerm] = [];
+          }
+          searchTermGroups[searchTerm].push(visitor);
+        });
+        return searchTermGroups;
+      
+      default:
+        return {
+          'incoming': incomingChats,
+          'served': servedVisitors
+        };
+    }
   };
 
   // Show loading while authentication is being checked
@@ -89,79 +217,30 @@ const VisitorPage = () => {
 
   return (
     <ClientAgentOnly>
-      <div className="p-6 bg-white min-h-screen">
+      <div className="p-6 bg-white min-h-screen relative">
         {/* Global notifications are handled by the global notification system */}
         
-        {/* Header */}
-        <VisitorHeader
-          agentName={CURRENT_AGENT?.name || 'Agent'}
-          agentId={CURRENT_AGENT?.id || ''}
-          totalVisitors={visitors.length}
-          filteredCount={allVisitors.length}
-          searchTerm={searchTerm}
-    
-                />
-
-          {/* Search and Refresh */}
+        {/* Search and Refresh */}
         <VisitorSearch
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           onRefresh={fetchVisitors}
           loading={loading}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
         />
 
-        {/* Incoming Chats Section */}
-        <VisitorDropdown title="Incoming chats" defaultExpanded={true}>
-          <VisitorTable
-            title="Incoming chats"
-            visitors={incomingChats}
-            visitorCount={incomingChats.length}
-            type="incoming"
-            onTakeVisitor={handleTakeVisitor}
-            onRemoveVisitor={removeVisitor}
-            onVisitorClick={handleVisitorClick}
-            searchTerm={searchTerm}
-          />
-        </VisitorDropdown>
+        {/* Dynamic Grouped Visitor Display */}
+        <GroupedVisitorDisplay
+          groupedVisitors={getGroupedVisitors()}
+          groupBy={groupBy}
+          onTakeVisitor={handleTakeVisitor}
+          onRemoveVisitor={removeVisitor}
+          onVisitorClick={handleVisitorClickEnhanced}
+          searchTerm={searchTerm}
+        />
 
-        {/* Currently Served Section */}
-        <VisitorDropdown title="Currently served" defaultExpanded={true}>
-          <VisitorTable
-            title="Currently served"
-            visitors={servedVisitors}
-            visitorCount={servedVisitors.length}
-            type="served"
-            onTakeVisitor={handleTakeVisitor}
-            onRemoveVisitor={removeVisitor}
-            onVisitorClick={handleVisitorClick}
-            searchTerm={searchTerm}
-          />
-        </VisitorDropdown>
-
-        {/* Active Website Visitors Section */}
-        {/* <VisitorDropdown title="Active website visitors" defaultExpanded={true}>
-          <VisitorTable
-            title="Active website visitors"
-            visitors={activeWebsiteVisitors}
-            visitorCount={activeWebsiteVisitors.length}
-            type="active"
-            onTakeVisitor={handleTakeVisitor}
-            onRemoveVisitor={removeVisitor}
-            onVisitorClick={handleVisitorClick}
-            searchTerm={searchTerm}
-          />
-        </VisitorDropdown> */}
-
-        {/* Visitor Details Popup */}
-        {selectedVisitor && isPopupOpen && (
-          <VisitorDetailsPopup
-            visitor={selectedVisitor}
-            selectedAgent={CURRENT_AGENT || undefined}
-            isOpen={isPopupOpen}
-            onClose={closePopup}
-            onChatEnded={handleChatEnded}
-          />
-        )}
+        {/* Minimized Chat Tabs - Page Level */}
       </div>
     </ClientAgentOnly>
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { User, Edit2, MapPin, Monitor, Clock } from 'lucide-react';
+import { User, HelpCircle, ArrowDown } from 'lucide-react';
+import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
 
 interface VisitorInfoPanelProps {
   visitor: {
@@ -27,14 +28,44 @@ interface VisitorInfoPanelProps {
       os?: string;
     };
   };
+  chatMessages?: Array<{
+    id: string;
+    sender: 'visitor' | 'agent' | 'system';
+    sender_id?: string;
+    message: string;
+    timestamp: string;
+    status?: 'read';
+  }>;
 }
 
-const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor }) => {
+const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessages = [] }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [tags, setTags] = useState('');
+
+
+  // Calculate chat duration from visitor start time
+  const getChatDuration = () => {
+    if (!visitor.started_at) return '0m';
+    
+    const startTime = new Date(visitor.started_at).getTime();
+    const currentTime = new Date().getTime();
+    const durationMs = currentTime - startTime;
+    
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
 
   useEffect(() => {
     setName(visitor.metadata?.name || '');
@@ -42,160 +73,96 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor }) => {
   }, [visitor.metadata?.name, visitor.metadata?.email]);
 
   return (
-    <div className="w-96 flex flex-col bg-gray-50 overflow-y-auto">
-      <div className="p-4 space-y-6">
-        {/* Visitor Details */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Visitor Details
-            </h3>
+    <div className="flex flex-col bg-white overflow-y-auto h-full">
+      <div className="p-2 space-y-3">
+        {/* Visitor Avatar and Details */}
+        <div className="flex flex-col items-center space-y-2">
+          <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+            <User className="w-5 h-5 text-gray-600" />
           </div>
-          <div className="p-4 space-y-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Name</label>
-              <input 
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Add name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Email</label>
-              <input 
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Add email"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Phone</label>
-              <input 
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Add phone"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Notes */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Edit2 className="w-5 h-5" />
-              Notes
-            </h3>
-          </div>
-          <div className="p-4">
-            <textarea 
+          <div className="w-full space-y-2">
+            <input
+              type="text"
+              placeholder="Add name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+            />
+            <input
+              type="email"
+              placeholder="Add email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+            />
+            <input
+              type="tel"
+              placeholder="Add phone number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+            />
+            <textarea
+              placeholder="Add visitor notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add visitor notes"
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={2}
+              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none"
             />
           </div>
         </div>
 
-        {/* Tags */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Tags</h3>
+
+        {/* Statistics */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="text-center p-2 bg-gray-50">
+            <div className="text-sm font-bold text-gray-900">{chatMessages.length}</div>
+            <div className="text-xs text-gray-600">Messages</div>
           </div>
-          <div className="p-4">
-            <input 
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="Add tags (comma separated)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex flex-wrap gap-2 mt-3">
-              {tags.split(',').filter(tag => tag.trim()).map((tag, index) => (
-                <span key={index} className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full">
-                  {tag.trim()}
-                </span>
-              ))}
-            </div>
+          <div className="text-center p-2 bg-gray-50">
+            <div className="text-sm font-bold text-gray-900">{getChatDuration()}</div>
+            <div className="text-xs text-gray-600">Duration</div>
           </div>
         </div>
 
-        {/* Visitor Stats */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Visitor Information</h3>
-          </div>
-          <div className="p-4">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="p-3 bg-gray-50 rounded-lg border">
-                <div className="text-lg font-bold text-gray-900">{visitor.agent_id ? 'Assigned' : 'Unassigned'}</div>
-                <div className="text-xs text-gray-600">Status</div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg border">
-                <div className="text-lg font-bold text-gray-900">{visitor.agent_name || 'Unassigned'}</div>
-                <div className="text-xs text-gray-600">Agent</div>
-              </div>
-            </div>
+        {/* Current Ticket */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-gray-900">Current ticket</h3>
+          <div className="border-t border-gray-200 pt-2">
+            <div className="text-sm text-gray-500">No current ticket</div>
           </div>
         </div>
 
-        {/* Location */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
-              Location
-            </h3>
-          </div>
-          <div className="p-4 space-y-2 text-sm">
-            <div><span className="font-medium">Country:</span> {visitor.metadata?.country || 'Unknown'}</div>
-            <div><span className="font-medium">Region:</span> {visitor.metadata?.region || 'Unknown'}</div>
-            <div><span className="font-medium">City:</span> {visitor.metadata?.city || 'Unknown'}</div>
+        {/* Metadata Section */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-gray-900">Metadata</h3>
+          <div className="space-y-2 text-xs text-gray-600">
             <div><span className="font-medium">IP:</span> {visitor.metadata?.ip_address || 'Unknown'}</div>
-            <div><span className="font-medium">Timezone:</span> {visitor.metadata?.timezone || 'Unknown'}</div>
-          </div>
-        </div>
-
-        {/* Device Info */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Monitor className="w-5 h-5" />
-              Device Info
-            </h3>
-          </div>
-          <div className="p-4 space-y-2 text-sm">
-            <div><span className="font-medium">Browser:</span> {visitor.metadata?.browser || 'Unknown'}</div>
-            <div><span className="font-medium">OS:</span> {visitor.metadata?.os || 'Unknown'}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Country:</span> 
+              {getCountryFlag(visitor.metadata?.country)}
+              <span>{visitor.metadata?.country || 'Unknown'}</span>
+            </div>
+            <div><span className="font-medium">City:</span> {visitor.metadata?.city || 'Unknown'}</div>
+            <div><span className="font-medium">Region:</span> {visitor.metadata?.region || 'Unknown'}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Browser:</span> 
+              {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent)}
+              <span>{visitor.metadata?.browser || 'Unknown'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">OS:</span> 
+              {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent)}
+              <span>{visitor.metadata?.os || 'Unknown'}</span>
+            </div>
             <div><span className="font-medium">Device:</span> {visitor.metadata?.device_type || 'Unknown'}</div>
-            <div><span className="font-medium">User Agent:</span> <span className="text-xs break-all">{visitor.metadata?.user_agent || 'Unknown'}</span></div>
-          </div>
-        </div>
-
-        {/* Session Details */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Session Details
-            </h3>
-          </div>
-          <div className="p-4 space-y-2 text-sm">
-            <div><span className="font-medium">Started:</span> {visitor.started_at ? new Date(visitor.started_at).toLocaleString() : 'Unknown'}</div>
-            <div><span className="font-medium">Status:</span> {visitor.status}</div>
-            <div><span className="font-medium">Session ID:</span> <span className="text-xs break-all">{visitor.session_id || 'Unknown'}</span></div>
-            <div><span className="font-medium">Referrer:</span> <span className="text-xs break-all">{visitor.metadata?.referrer || 'Direct'}</span></div>
-            <div><span className="font-medium">Page URL:</span> <span className="text-xs break-all">{visitor.metadata?.page_url || 'Unknown'}</span></div>
+            <div><span className="font-medium">Referrer:</span> {visitor.metadata?.referrer || 'Direct'}</div>
+            <div><span className="font-medium">Page URL:</span> 
+              <div className="break-all text-xs">{visitor.metadata?.page_url || 'Unknown'}</div>
+            </div>
+            <div><span className="font-medium">User Agent:</span> 
+              <div className="break-all text-xs">{visitor.metadata?.user_agent || 'Unknown'}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -204,5 +171,3 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor }) => {
 };
 
 export default VisitorInfoPanel;
-
-
