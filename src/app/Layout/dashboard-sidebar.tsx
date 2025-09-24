@@ -34,9 +34,7 @@ const navItems: NavItem[] = [
   { title: "Tickets", url: "/dashboard/tickets", icon: BsTicketPerforatedFill },
   { title: "Customers", url: "/dashboard/customers", icon: MdPeople },
   { title: "Organizations", url: "/dashboard/organizations", icon: MdBusiness },
-  { title: "Reporting", url: "/dashboard/reporting", icon: MdAssessment },
-  { title: "Analytics", icon: MdBarChart }, // No URL - not clickable
-  { title: "Settings", url: "/dashboard/settings", icon: MdSettings },
+  { title: "Reporting", url: "/dashboard/reporting", icon: MdBarChart },
 ];
 
 const getNavItems = (userRole?: UserRoleEnum): NavItem[] => {
