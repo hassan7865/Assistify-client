@@ -22,6 +22,9 @@ export default function Header() {
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean); 
   const { user, logout } = useAuth();
+  
+  // Check if current route contains 'chat'
+  const isChatActive = pathname.includes('/chat');
 
   const filteredSegments = segments.filter(segment => 
     segment.toLowerCase() !== 'dashboard' && segment.toLowerCase() !== 'setting'
@@ -90,15 +93,26 @@ export default function Header() {
          </DropdownMenuItem>
 
          {/* Chat - Active/Selected with orange left border */}
-         <DropdownMenuItem className="bg-orange-50 hover:bg-orange-100 px-4 py-3 cursor-pointer relative border-l-4 border-l-orange-500">
-           <div className="flex items-center gap-3 w-full">
+         <DropdownMenuItem asChild>
+           <Link 
+             href="/chat" 
+             className={`px-4 py-3 cursor-pointer relative flex items-center gap-3 w-full ${
+               isChatActive 
+                 ? 'bg-orange-50 hover:bg-orange-100 border-l-4 border-l-orange-500' 
+                 : 'hover:bg-gray-50'
+             }`}
+           >
              <div className="w-4 h-4 flex items-center justify-center">
-               <div className="w-3 h-3 rounded-sm bg-orange-500 flex items-center justify-center">
+               <div className={`w-3 h-3 rounded-sm flex items-center justify-center ${
+                 isChatActive ? 'bg-orange-500' : 'bg-gray-800'
+               }`}>
                  <div className="w-1.5 h-1.5 bg-white rounded-[1px] transform rotate-45"></div>
                </div>
              </div>
-             <span className="text-orange-700 font-medium">Chat</span>
-           </div>
+             <span className={`font-medium ${
+               isChatActive ? 'text-orange-700' : 'text-gray-900'
+             }`}>Chat</span>
+           </Link>
          </DropdownMenuItem>
 
          {/* Talk */}
@@ -181,7 +195,7 @@ export default function Header() {
                   <p className="text-sm font-semibold text-gray-900">
                     {user?.name || user?.organization_name}
                   </p>
-                  <Link href="/dashboard/setting/personal" className="text-xs text-gray-500 hover:text-gray-700">
+                  <Link href="/chat/setting/personal" className="text-xs text-gray-500 hover:text-gray-700">
                     View Profile
                   </Link>
                 </div>

@@ -65,7 +65,7 @@ api.interceptors.response.use(
         localStorage.removeItem('refreshToken');
         
         // Only redirect to login if we're on a protected page
-        if (window.location.pathname.startsWith('/dashboard')) {
+        if (window.location.pathname.startsWith('/chat')) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
@@ -76,7 +76,7 @@ api.interceptors.response.use(
       localStorage.removeItem('refreshToken');
       
       // Only redirect to login if we're on a protected page
-      if (window.location.pathname.startsWith('/dashboard')) {
+      if (window.location.pathname.startsWith('/chat')) {
         window.location.href = '/login';
       }
     }

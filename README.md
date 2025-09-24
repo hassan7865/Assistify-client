@@ -68,4 +68,4 @@ const wsUrl = `${API_ENDPOINTS.WS_BASE}/ws/chat/${sessionId}/agent/${agentId}`;
 - `src/lib/axios.ts` - Axios interceptor with authentication
 - `src/lib/constants.ts` - API endpoint constants
 - `src/contexts/auth-context.tsx` - Authentication context
-- `src/app/dashboard/visitors/` - Visitor management components
+- `src/app/chat/visitors/` - Visitor management components

@@ -58,17 +58,17 @@ const statusConfig = {
 };
 
 const navItems: NavItem[] = [
-  { title: "Home", url: "/dashboard", icon: MdHome },
-  { title: "Visitors", url: "/dashboard/visitors", icon: MdPeople, roles: [UserRoleEnum.CLIENT_AGENT] },
-  { title: "History", url: "/dashboard/history", icon: MdAccessTime },
+  { title: "Home", url: "/chat", icon: MdHome },
+  { title: "Visitors", url: "/chat/visitors", icon: MdPeople, roles: [UserRoleEnum.CLIENT_ADMIN, UserRoleEnum.CLIENT_AGENT] },
+  { title: "History", url: "/chat/history", icon: MdAccessTime },
   { title: "Analytics", icon: MdBarChart }, // No URL - not clickable
   { title: "Monitor", icon: MdMonitor }, // No URL - not clickable
   {
     title: "Settings",
     icon: MdSettings,
     children: [
-      { title: "Agents", url: "/dashboard/setting/agents", icon: MdPerson },
-      { title: "Personal", url: "/dashboard/setting/personal", icon: MdPerson },
+      { title: "Agents", url: "/chat/setting/agents", icon: MdPerson },
+      { title: "Personal", url: "/chat/setting/personal", icon: MdPerson },
       { title: "Departments", icon: MdPeople }, // No URL - not clickable
       { title: "Roles", icon: MdSecurity }, // No URL - not clickable
       { title: "Routing", icon: MdTune }, // No URL - not clickable
@@ -329,7 +329,7 @@ export default function AppSidebar() {
               </div>
               {openItems.Team && (
                 <div className="py-2.5 bg-[#012c32]">
-                  <Link href="/dashboard/setting/agents" className="block">
+                  <Link href="/chat/setting/agents" className="block">
                     <div className="h-12 px-5 cursor-pointer whitespace-nowrap flex items-center opacity-55 hover:opacity-100">
                       <div className="w-5 h-5 flex-shrink-0 invisible"></div>
                       <div className="flex-1 pl-5 text-white text-sm flex items-center">
@@ -346,6 +346,7 @@ export default function AppSidebar() {
               )}
             </div>
           </SidebarMenuItem>
+
         </SidebarMenu>
       </SidebarContent>
 

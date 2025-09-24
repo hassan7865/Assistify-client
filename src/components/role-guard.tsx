@@ -56,7 +56,13 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
 
 // Convenience components for common role restrictions
 export const ClientAgentOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <RoleGuard allowedRoles={[UserRoleEnum.CLIENT_AGENT]} redirectTo="/dashboard/history">
+  <RoleGuard allowedRoles={[UserRoleEnum.CLIENT_AGENT]} >
+    {children}
+  </RoleGuard>
+);
+
+export const ClientAdminOrAgent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <RoleGuard allowedRoles={[UserRoleEnum.CLIENT_ADMIN, UserRoleEnum.CLIENT_AGENT]} >
     {children}
   </RoleGuard>
 );

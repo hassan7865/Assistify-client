@@ -38,7 +38,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     canSend,
     sendChatMessage,
     sendTypingIndicator,
-    sendMessageSeen
+    sendMessageSeen,
+    selectedVisitor
   } = useGlobalChat();
 
   const handleSendMessage = () => {
@@ -216,6 +217,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           </div>
         )}
+        
+        {/* Agent Joined Message */}
+        {!canSend && selectedVisitor?.agent_id && selectedVisitor?.agent_name && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id && (
+          <div className="flex justify-center items-center py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 max-w-sm">
+              <div className="text-center">
+                <div className="text-sm font-medium text-blue-800 mb-1">
+                  Agent {selectedVisitor.agent_name} has joined
+                </div>
+                <div className="text-xs text-blue-600">
+                  This conversation is being handled by another agent
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
           </div>
 
       {/* Input Area */}
@@ -226,8 +243,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     onChange={handleTyping}
             onKeyPress={handleKeyPress}
             onBlur={handleBlur}
-            placeholder="Type your message..."
-            className="w-full text-sm border-none outline-none resize-none pr-16"
+            placeholder={!canSend && selectedVisitor?.agent_id && selectedVisitor?.agent_name && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id 
+              ? `This conversation is being handled by Agent ${selectedVisitor.agent_name}` 
+              : "Type your message..."}
+            className={`w-full text-sm border-none outline-none resize-none pr-16 ${
+              !canSend && selectedVisitor?.agent_id && selectedVisitor?.agent_name && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id
+                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                : ''
+            }`}
             rows={3}
                     disabled={!isConnected || !canSend}
           />

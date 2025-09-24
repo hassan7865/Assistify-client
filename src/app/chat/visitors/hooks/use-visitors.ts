@@ -30,7 +30,7 @@ interface Visitor {
 
 export const useVisitors = () => {
   const { user } = useAuth();
-  const { openChat, setCurrentAgent } = useGlobalChat();
+  const { openChat, setCurrentAgent, minimizedChats, setMinimizedChats } = useGlobalChat();
   
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [pendingVisitors, setPendingVisitors] = useState<Visitor[]>([]);
@@ -157,8 +157,18 @@ export const useVisitors = () => {
             : v
         ));
         
-        // If skipRefresh is false, open chat with the updated visitor data
+        // If skipRefresh is false, add visitor to minimized tabs AND open chat
         if (!skipRefresh) {
+          // Add to minimized chats if not already there
+          setMinimizedChats(prev => {
+            const exists = prev.some(chat => chat.visitor_id === updatedVisitor.visitor_id);
+            if (!exists) {
+              return [...prev, updatedVisitor];
+            }
+            return prev;
+          });
+          
+          // Also open the chat dialog
           openChat(updatedVisitor);
         }
       } else {

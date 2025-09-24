@@ -144,8 +144,8 @@ const VisitorMonitor: React.FC = () => {
 
   // Initialize SSE connection when component mounts
   useEffect(() => {
-    // Only run visitor monitor for client agents
-    if (user && user.role === UserRoleEnum.CLIENT_AGENT) {
+    // Run visitor monitor for client agents and client admins
+    if (user && (user.role === UserRoleEnum.CLIENT_AGENT || user.role === UserRoleEnum.CLIENT_ADMIN)) {
       const currentAgent = getCurrentAgent();
       
       if (currentAgent?.id) {

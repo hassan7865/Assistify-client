@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useRef, useCallback } from 'react';
 import api from '@/lib/axios';
+import { useGlobalChat } from '@/contexts/global-chat-context';
 
 interface VisitorActionsContextType {
   takeVisitor: (visitorId: string) => void;
@@ -25,6 +26,7 @@ interface VisitorActionsProviderProps {
 export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ children }) => {
   // Use useRef to store the handler to avoid recreating functions
   const takeVisitorHandlerRef = useRef<((visitorId: string) => void) | null>(null);
+  const { openChat, setMinimizedChats } = useGlobalChat();
 
   // Global takeVisitor function that works from any page
   const globalTakeVisitor = useCallback(async (visitorId: string) => {
@@ -50,11 +52,33 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
       });
 
       if (response.data.success) {
+        // Create visitor object for UI updates
+        const visitor = {
+          visitor_id: visitorId,
+          agent_id: user.user_id,
+          agent_name: user.name || user.email,
+          status: "active",
+          started_at: new Date().toISOString(),
+          session_id: response.data.session_id || undefined, // Only set if exists
+          metadata: response.data.metadata || {}
+        };
+        
+        // Add to minimized chats
+        setMinimizedChats(prev => {
+          const exists = prev.some(chat => chat.visitor_id === visitorId);
+          if (!exists) {
+            return [...prev, visitor];
+          }
+          return prev;
+        });
+        
+        // Open the chat dialog
+        openChat(visitor);
       } else {
       }
     } catch (error: any) {
     }
-  }, []);
+  }, [openChat, setMinimizedChats]);
 
   const takeVisitor = useCallback((visitorId: string) => {
     // First try the page-specific handler if available

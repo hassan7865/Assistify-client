@@ -28,6 +28,7 @@ import {
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "13rem"
+const SIDEBAR_WIDTH_DASHBOARD = "10rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
@@ -35,6 +36,7 @@ const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
   open: boolean
+  variant: "dashboard" | "sidebar"
   setOpen: (open: boolean) => void
   openMobile: boolean
   setOpenMobile: (open: boolean) => void
@@ -55,6 +57,7 @@ function useSidebar() {
 
 function SidebarProvider({
   defaultOpen = true,
+  variant = "dashboard",
   open: openProp,
   onOpenChange: setOpenProp,
   className,
@@ -63,6 +66,7 @@ function SidebarProvider({
   ...props
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean
+  variant?: "dashboard" | "sidebar"
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }) {
@@ -121,6 +125,7 @@ function SidebarProvider({
       isMobile,
       openMobile,
       setOpenMobile,
+      variant,
       toggleSidebar,
     }),
     [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
@@ -133,7 +138,7 @@ function SidebarProvider({
           data-slot="sidebar-wrapper"
           style={
             {
-              "--sidebar-width": SIDEBAR_WIDTH,
+              "--sidebar-width": variant === "dashboard" ? SIDEBAR_WIDTH_DASHBOARD : SIDEBAR_WIDTH,
               "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
               ...style,
             } as React.CSSProperties

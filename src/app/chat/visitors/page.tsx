@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import VisitorSearch from './components/visitor-search';
 import GroupedVisitorDisplay from './components/grouped-visitor-display';
+import MinimizedChatTabs from './components/minimized-chat-tabs';
 import { useVisitors } from './hooks/use-visitors';
 import { useAuth } from '@/contexts/auth-context';
 import { useVisitorActions } from '@/contexts/visitor-actions';
-import { ClientAgentOnly } from '@/components/role-guard';
+import { useGlobalChat } from '@/contexts/global-chat-context';
+import { ClientAdminOrAgent } from '@/components/role-guard';
 // No local notifications needed - global system handles everything
 
 // Import Visitor type from the table component
@@ -37,6 +39,7 @@ interface Visitor {
 const VisitorPage = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { setTakeVisitorHandler } = useVisitorActions();
+  const { minimizedChats, maximizeChat, closeMinimizedChat } = useGlobalChat();
   const [groupBy, setGroupBy] = useState('Activity');
   const {
     loading,
@@ -206,11 +209,11 @@ const VisitorPage = () => {
   }
 
   return (
-    <ClientAgentOnly>
+    <ClientAdminOrAgent>
       <div className="p-6 bg-white min-h-screen relative">
         {/* Global notifications are handled by the global notification system */}
-        
-        {/* Search and Refresh */}
+
+          {/* Search and Refresh */}
         <VisitorSearch
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -224,15 +227,20 @@ const VisitorPage = () => {
         <GroupedVisitorDisplay
           groupedVisitors={getGroupedVisitors()}
           groupBy={groupBy}
-          onTakeVisitor={handleTakeVisitor}
-          onRemoveVisitor={removeVisitor}
+            onTakeVisitor={handleTakeVisitor}
+            onRemoveVisitor={removeVisitor}
           onVisitorClick={handleVisitorClickEnhanced}
-          searchTerm={searchTerm}
-        />
+            searchTerm={searchTerm}
+          />
 
-        {/* Minimized Chat Tabs - Page Level */}
+        {/* Minimized Chat Tabs */}
+        <MinimizedChatTabs
+          minimizedChats={minimizedChats}
+          onMaximize={maximizeChat}
+          onClose={closeMinimizedChat}
+        />
       </div>
-    </ClientAgentOnly>
+    </ClientAdminOrAgent>
   );
 };
 

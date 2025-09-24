@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import api from '@/lib/axios';
+import { useAuth } from '@/contexts/auth-context';
 
 export interface VisitorRequest {
   visitor_id: string;
@@ -25,6 +27,7 @@ export interface VisitorRequest {
 
 interface VisitorRequestsContextType {
   requests: VisitorRequest[];
+  isLoading: boolean;
   addRequest: (request: Omit<VisitorRequest, 'timestamp' | 'status'>) => void;
   removeRequest: (visitorId: string) => void;
   serveRequest: () => VisitorRequest | null;
@@ -48,6 +51,37 @@ interface VisitorRequestsProviderProps {
 
 export const VisitorRequestsProvider: React.FC<VisitorRequestsProviderProps> = ({ children }) => {
   const [requests, setRequests] = useState<VisitorRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Fetch existing visitor requests when component mounts
+  useEffect(() => {
+    const fetchExistingRequests = async () => {
+      if (!user?.client_id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/chat/pending-visitors/${user.client_id}`);
+        if (response.data && response.data.visitors) {
+          const existingRequests: VisitorRequest[] = response.data.visitors.map((visitor: any) => ({
+            visitor_id: visitor.visitor_id,
+            metadata: visitor.metadata,
+            timestamp: new Date().toISOString(),
+            status: 'pending' as const
+          }));
+          setRequests(existingRequests);
+        }
+      } catch (error) {
+        // Handle error silently - requests will be empty
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchExistingRequests();
+  }, [user?.client_id]);
 
   const addRequest = (request: Omit<VisitorRequest, 'timestamp' | 'status'>) => {
     // Check if request already exists
@@ -91,6 +125,7 @@ export const VisitorRequestsProvider: React.FC<VisitorRequestsProviderProps> = (
   return (
     <VisitorRequestsContext.Provider value={{
       requests,
+      isLoading,
       addRequest,
       removeRequest,
       serveRequest,

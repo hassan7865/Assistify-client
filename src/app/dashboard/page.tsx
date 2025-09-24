@@ -1,122 +1,241 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { 
-  FiSettings, 
-  FiUsers, 
-  FiBarChart, 
-  FiZap 
-} from "react-icons/fi";
-import { useAuth } from "@/contexts/auth-context";
-import { UserRoleEnum } from "@/lib/constants";
+  Play,
+  Circle,
+  Square
+} from "lucide-react";
+
+// Mock data for tickets
+const mockTickets = [
+  {
+    id: 4,
+    subject: "Chat with Shabbir",
+    requester: "Shabbir",
+    updated: "Apr 13, 2023",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 5,
+    subject: "Js",
+    requester: "Visitor 82404976",
+    updated: "Apr 13, 2023",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 6,
+    subject: "Message from: Text user: +12407065240",
+    requester: "Text user: +12407065240",
+    updated: "Apr 13, 2023",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 7,
+    subject: "Voicemail from: Caller +1 (844) 329-5283",
+    requester: "Caller +1 (844) 329-5283",
+    updated: "Apr 13, 2023",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 8,
+    subject: "Missed conversation with Visitor 21748408",
+    requester: "Visitor 21748408",
+    updated: "Apr 13, 2023",
+    group: "Support",
+    assignee: "-",
+    status: "new"
+  },
+  {
+    id: 9,
+    subject: "Conversation with Visitor 67019758",
+    requester: "Visitor 67019758",
+    updated: "Apr 13, 2023",
+    group: "Support",
+    assignee: "-",
+    status: "new"
+  },
+  {
+    id: 10,
+    subject: "Chat with Visitor 12345678",
+    requester: "Visitor 12345678",
+    updated: "Aug 07, 2024",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 11,
+    subject: "Support request from John Doe",
+    requester: "John Doe",
+    updated: "Aug 06, 2024",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 12,
+    subject: "Technical issue with login",
+    requester: "Jane Smith",
+    updated: "Aug 06, 2024",
+    group: "Support",
+    assignee: "Allen Wilson",
+    status: "open"
+  },
+  {
+    id: 13,
+    subject: "Billing inquiry",
+    requester: "Mike Johnson",
+    updated: "Aug 06, 2024",
+    group: "Support",
+    assignee: "-",
+    status: "new"
+  }
+];
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-
   return (
-    <div className="p-6 bg-white min-h-screen">
-      {/* Greeting Section */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-800 mb-1">
-          Hello, {user?.name || user?.organization_name}!
-        </h1>
-        <div className="w-full h-0.5 bg-gray-300 relative">
-          <div className="absolute top-0 left-0 h-full bg-blue-500" style={{ width: '25%' }}></div>
+    <div className="flex h-screen bg-white">
+      {/* Left Sidebar */}
+      <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
+        <h2 className="text-xs text-gray-800 mb-3 font-semibold">Dashboard</h2>
+        <div className="mb-4">
+          <h3 className="text-xs text-gray-800 mb-1 font-semibold">Updates to your tickets</h3>
+          <p className="text-xs text-gray-500">No recent updates.</p>
         </div>
       </div>
 
-      {/* Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl">
-        {/* Widget Card */}
-        <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-          <div className="flex items-center space-x-2 mb-2">
-            <FiSettings className="h-4 w-4 text-gray-700" />
-            <h3 className="text-sm font-semibold text-gray-800">Widget</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-            Embed and customize the widget on your website.
-          </p>
-          <Link
-            href="/dashboard/setting/widget"
-            className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
-          >
-            Manage widget
-          </Link>
-        </Card>
-
-        {/* Visitors Card - Only for CLIENT_AGENT */}
-        {user?.role === UserRoleEnum.CLIENT_AGENT && (
-          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <FiUsers className="h-4 w-4 text-gray-700" />
-              <h3 className="text-sm font-semibold text-gray-800">Visitors</h3>
+      {/* Main Content */}
+      <div className="flex-1 p-4 overflow-hidden">
+        {/* Statistics Cards */}
+        <div className="mb-6">
+          <div className="flex gap-4 mb-4">
+            {/* Open Tickets */}
+            <div>
+              <h3 className="text-xs text-gray-800 mb-2">Open tickets (current)</h3>
+              <div className="flex">
+                <Card className="w-16 h-16 flex items-center justify-center rounded-none border-r-0">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-800 font-semibold">10</div>
+                    <div className="text-xs text-gray-600">YOU</div>
+                  </div>
+                </Card>
+                <Card className="w-16 h-16 flex items-center justify-center rounded-none">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-800 font-semibold">14</div>
+                    <div className="text-xs text-gray-600">GROUPS</div>
+                  </div>
+                </Card>
+              </div>
             </div>
-            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-              See a list of visitors to your website and start a conversation.
-            </p>
-            <Link
-              href="/dashboard/visitors"
-              className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
-            >
-              View visitors list
-            </Link>
-          </Card>
-        )}
 
-        {/* Team Card - Only for CLIENT_ADMIN */}
-        {user?.role === UserRoleEnum.CLIENT_ADMIN && (
-          <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <FiUsers className="h-4 w-4 text-gray-700" />
-              <h3 className="text-sm font-semibold text-gray-800">Team</h3>
+            {/* Ticket Statistics */}
+            <div>
+              <h3 className="text-xs text-gray-800 mb-2">Ticket statistics (this week)</h3>
+              <div className="flex">
+                <Card className="w-16 h-16 flex items-center justify-center rounded-none border-r-0">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-800 font-semibold">0</div>
+                    <div className="text-xs text-gray-600">GOOD</div>
+                  </div>
+                </Card>
+                <Card className="w-16 h-16 flex items-center justify-center rounded-none border-r-0">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-800 font-semibold">0</div>
+                    <div className="text-xs text-gray-600">BAD</div>
+                  </div>
+                </Card>
+                <Card className="w-16 h-16 flex items-center justify-center rounded-none">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-800 font-semibold ">0</div>
+                    <div className="text-xs text-gray-600">SOLVED</div>
+                  </div>
+                </Card>
+              </div>
             </div>
-            <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-              Manage your team members and their roles in the organization.
-            </p>
-            <Link
-              href="/dashboard/setting/agents"
-              className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
-            >
-              Manage team
-            </Link>
-          </Card>
-        )}
-
-        {/* Analytics Card */}
-        <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-          <div className="flex items-center space-x-2 mb-2">
-            <FiBarChart className="h-4 w-4 text-gray-700" />
-            <h3 className="text-sm font-semibold text-gray-800">Analytics</h3>
           </div>
-          <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-            Track the conversations you have with customers.
-          </p>
-          <Link
-            href="/dashboard/analytics"
-            className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
-          >
-            View analytics
-          </Link>
-        </Card>
+        </div>
 
-        {/* Triggers Card */}
-        <Card className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-          <div className="flex items-center space-x-2 mb-2">
-            <FiZap className="h-4 w-4 text-gray-700" />
-            <h3 className="text-sm font-semibold text-gray-800">Triggers</h3>
+        {/* Tickets Table */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs text-gray-800">
+                Tickets requiring your attention (14)
+              </h2>
+              <a href="#" className="text-xs text-blue-600 underline">What is this?</a>
+            </div>
+            <Button variant="outline" size="sm" className="text-xs text-gray-600 border-gray-300 h-7 px-3">
+              <Play className="w-3 h-3 mr-1" />
+              Play
+            </Button>
           </div>
-          <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-            Proactively start conversations or send custom messages to leads.
-          </p>
-          <Link
-            href="/dashboard/setting/triggers"
-            className="text-xs text-blue-600 hover:text-blue-500 underline font-medium"
-          >
-            Manage triggers
-          </Link>
-        </Card>
+
+          {/* Ticket List */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox className="w-3 h-3 border border-gray-300" />
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">ID</TableHead>
+                    <TableHead className="text-xs font-semibold">Subject</TableHead>
+                    <TableHead className="text-xs font-semibold">Requester updated</TableHead>
+                    <TableHead className="text-xs font-semibold">Group</TableHead>
+                    <TableHead className="text-xs font-semibold">Assignee</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockTickets.map((ticket) => (
+                    <TableRow key={ticket.id} className="hover:bg-gray-50">
+                      <TableCell className="w-12">
+                        <Checkbox className="w-3 h-3 border border-gray-300" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {ticket.status === 'open' ? (
+                            <Circle className="w-2 h-2 text-red-500 fill-current" />
+                          ) : (
+                            <Square className="w-2 h-2 text-orange-500 fill-current" />
+                          )}
+                          <span className="text-xs">#{ticket.id}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs text-gray-900 truncate">{ticket.subject}</div>
+                        <div className="text-xs text-gray-500">{ticket.requester}</div>
+                      </TableCell>
+                      <TableCell className="text-xs text-gray-500">{ticket.updated}</TableCell>
+                      <TableCell className="text-xs text-gray-500">{ticket.group}</TableCell>
+                      <TableCell className="text-xs text-gray-500">{ticket.assignee}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

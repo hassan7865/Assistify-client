@@ -48,6 +48,7 @@ interface GlobalChatContextType {
   
   // Minimized Chats State
   minimizedChats: Visitor[];
+  setMinimizedChats: React.Dispatch<React.SetStateAction<Visitor[]>>;
   
   // WebSocket State (for current selected visitor)
   isConnected: boolean;
@@ -207,7 +208,16 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
           return newMap;
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Handle 404 errors gracefully (session doesn't exist)
+      if (error?.response?.status === 404) {
+        // Session doesn't exist - this is normal for new visitors
+        // Just clear loading state and continue
+      } else {
+        // Log other errors but don't throw
+        console.warn('Failed to fetch chat history:', error);
+      }
+      
       // Clear loading state on error
       setVisitorChatStates(prev => {
         const newMap = new Map(prev);
@@ -396,8 +406,8 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     if (visitor.agent_id && visitor.agent_name && !currentAgent) {
       setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
     }
-    // Always fetch fresh chat history if session_id exists
-    if (visitor.session_id) {
+    // Always fetch fresh chat history if session_id exists and is valid
+    if (visitor.session_id && visitor.session_id.trim() !== '') {
       await fetchChatHistory(visitor.session_id, visitor);
     }
   }, [currentAgent, fetchChatHistory, selectedVisitor]);
@@ -576,11 +586,18 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
 
   const handleCloseWithDialog = useCallback(() => {
     if (selectedVisitor?.agent_id && selectedVisitor?.status === 'active') {
-      setShowEndChatDialog(true);
+      // Only show end chat dialog if current agent can end the chat
+      const canEndChat = selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id;
+      if (canEndChat) {
+        setShowEndChatDialog(true);
+      } else {
+        // If current agent cannot end chat, just close without dialog
+        closeChat();
+      }
     } else {
       closeChat();
     }
-  }, [selectedVisitor, closeChat]);
+  }, [selectedVisitor, currentAgent, closeChat]);
 
   // Get current visitor's chat state for the context value
   const currentChatState = getCurrentChatState();
@@ -592,6 +609,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     isSwitchingVisitor,
     canSend: Boolean(selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id),
     minimizedChats,
+    setMinimizedChats,
     isConnected: currentChatState.isConnected,
     isConnecting: currentChatState.isConnecting,
     chatMessages: currentChatState.chatMessages,
