@@ -166,6 +166,7 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                   <div className="w-20 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Visitor</div>
                   <div className="w-32 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Online</div>
                   <div className="w-32 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Referrer</div>
+                  <div className="w-24 text-xs font-medium text-gray-600 uppercase tracking-wider text-center" style={{ fontSize: '0.65rem' }}>Served by</div>
                   <div className="w-12 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Messages</div>
                 </div>
 
@@ -201,6 +202,13 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         <Search className="h-3 w-3 text-gray-400" />
                         <span className="text-xs text-gray-600 truncate">
                           {getReferrerDisplay(visitor.metadata?.referrer)}
+                        </span>
+                      </div>
+                      
+                      {/* Served by */}
+                      <div className="w-24 flex items-center justify-center">
+                        <span className="text-xs text-gray-600 truncate">
+                          {visitor.agent_name || 'Unassigned'}
                         </span>
                       </div>
                       

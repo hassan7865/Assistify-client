@@ -63,16 +63,18 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
           metadata: response.data.metadata || {}
         };
         
-        // Add to minimized chats
-        setMinimizedChats(prev => {
-          const exists = prev.some(chat => chat.visitor_id === visitorId);
-          if (!exists) {
-            return [...prev, visitor];
-          }
-          return prev;
-        });
+        // Only add to minimized chats if the assigned agent is the currently logged in agent
+        if (visitor.agent_id && user?.user_id && visitor.agent_id === user.user_id) {
+          setMinimizedChats(prev => {
+            const exists = prev.some(chat => chat.visitor_id === visitorId);
+            if (!exists) {
+              return [...prev, visitor];
+            }
+            return prev;
+          });
+        }
         
-        // Open the chat dialog
+        // Open the chat dialog (this will auto-minimize any currently open chat)
         openChat(visitor);
       } else {
       }

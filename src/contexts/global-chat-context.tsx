@@ -388,6 +388,21 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
   }, [selectedVisitor?.session_id, currentAgent?.id, getCurrentChatState, updateCurrentChatState]);
 
   const openChat = useCallback(async (visitor: Visitor) => {
+    // If there's a currently open chat and we're opening a different visitor,
+    // automatically minimize the current chat (only if it belongs to current agent)
+    if (selectedVisitor && selectedVisitor.visitor_id !== visitor.visitor_id && isChatOpen) {
+      // Only add to minimized chats if the current chat belongs to the current agent
+      if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
+        setMinimizedChats(prev => {
+          const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
+          if (!exists) {
+            return [...prev, selectedVisitor];
+          }
+          return prev;
+        });
+      }
+    }
+    
     // Show switching animation if we're switching to a different visitor
     if (selectedVisitor && selectedVisitor.visitor_id !== visitor.visitor_id) {
       setIsSwitchingVisitor(true);
@@ -400,27 +415,40 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     setShowEndChatDialog(false);
     setIsSwitchingVisitor(false);
     
-    // Remove from minimized chats if it was there
+    // Remove from minimized chats if it was there (the new visitor)
     setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitor.visitor_id));
     // Ensure agent is set if visitor has agent_id
     if (visitor.agent_id && visitor.agent_name && !currentAgent) {
       setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
     }
     // Always fetch fresh chat history if session_id exists and is valid
+    // Don't await this - let it run in background so chat dialog opens immediately
     if (visitor.session_id && visitor.session_id.trim() !== '') {
-      await fetchChatHistory(visitor.session_id, visitor);
+      fetchChatHistory(visitor.session_id, visitor).catch(error => {
+        // This is already handled in fetchChatHistory
+      });
     }
   }, [currentAgent, fetchChatHistory, selectedVisitor]);
 
-  // Connect WebSocket when visitor and agent are available
+  // Connect WebSocket when visitor and agent are available (only if visitor belongs to current agent)
   useEffect(() => {
     if (selectedVisitor?.session_id && currentAgent?.id && isChatOpen) {
-      const currentState = getCurrentChatState();
-      if (!currentState.isConnecting && (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN)) {
-        connectChatWebSocket();
+      // Only connect WebSocket if the selected visitor belongs to the current agent
+      if (selectedVisitor.agent_id && selectedVisitor.agent_id === currentAgent.id) {
+        const currentState = getCurrentChatState();
+        if (!currentState.isConnecting && (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN)) {
+          connectChatWebSocket();
+        }
+      } else {
+        // If visitor doesn't belong to current agent, set connection state to not connected
+        updateCurrentChatState({
+          isConnected: false,
+          isConnecting: false,
+          wsConnection: null
+        });
       }
     }
-  }, [selectedVisitor?.session_id, currentAgent?.id, isChatOpen, getCurrentChatState, connectChatWebSocket]);
+  }, [selectedVisitor?.session_id, selectedVisitor?.agent_id, currentAgent?.id, isChatOpen, getCurrentChatState, connectChatWebSocket, updateCurrentChatState]);
 
   const closeChat = useCallback(() => {
     // Close WebSocket connection for current visitor
@@ -436,20 +464,22 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
 
   const minimizeChat = useCallback(() => {
     if (selectedVisitor) {
-      // Add to minimized chats if not already there
-      setMinimizedChats(prev => {
-        const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
-        if (!exists) {
-          return [...prev, selectedVisitor];
-        }
-        return prev;
-      });
-      // Close the chat dialog
+      // Only add to minimized chats if the chat belongs to the current agent
+      if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
+        setMinimizedChats(prev => {
+          const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
+          if (!exists) {
+            return [...prev, selectedVisitor];
+          }
+          return prev;
+        });
+      }
+      // Close the chat dialog (works for any chat)
       setIsChatOpen(false);
       setSelectedVisitor(null);
       setShowEndChatDialog(false);
     }
-  }, [selectedVisitor]);
+  }, [selectedVisitor, currentAgent]);
 
   const maximizeChat = useCallback((visitorId: string) => {
     const visitor = minimizedChats.find(chat => chat.visitor_id === visitorId);
@@ -610,8 +640,12 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     canSend: Boolean(selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id),
     minimizedChats,
     setMinimizedChats,
-    isConnected: currentChatState.isConnected,
-    isConnecting: currentChatState.isConnecting,
+    isConnected: selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id 
+      ? currentChatState.isConnected 
+      : true, // Show as "connected" for other agents' chats
+    isConnecting: selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id 
+      ? currentChatState.isConnecting 
+      : false, // Don't show "connecting" for other agents' chats
     chatMessages: currentChatState.chatMessages,
     isTyping: currentChatState.isTyping,
     isLoadingHistory: currentChatState.isLoadingHistory,

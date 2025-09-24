@@ -157,18 +157,20 @@ export const useVisitors = () => {
             : v
         ));
         
-        // If skipRefresh is false, add visitor to minimized tabs AND open chat
+        // If skipRefresh is false, add visitor to minimized tabs AND open chat dialog
         if (!skipRefresh) {
-          // Add to minimized chats if not already there
-          setMinimizedChats(prev => {
-            const exists = prev.some(chat => chat.visitor_id === updatedVisitor.visitor_id);
-            if (!exists) {
-              return [...prev, updatedVisitor];
-            }
-            return prev;
-          });
+          // Only add to minimized chats if the assigned agent is the currently logged in agent
+          if (updatedVisitor.agent_id && CURRENT_AGENT?.id && updatedVisitor.agent_id === CURRENT_AGENT.id) {
+            setMinimizedChats(prev => {
+              const exists = prev.some(chat => chat.visitor_id === updatedVisitor.visitor_id);
+              if (!exists) {
+                return [...prev, updatedVisitor];
+              }
+              return prev;
+            });
+          }
           
-          // Also open the chat dialog
+          // Open the chat dialog (this will auto-minimize any currently open chat)
           openChat(updatedVisitor);
         }
       } else {
