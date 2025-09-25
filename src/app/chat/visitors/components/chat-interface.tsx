@@ -1,17 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Smile, ThumbsUp, Paperclip, Lightbulb, Globe, MessageCircle } from 'lucide-react';
+import { Smile, ThumbsUp, Paperclip, MessageCircle } from 'lucide-react';
 import { useGlobalChat } from '@/contexts/global-chat-context';
+import { Visitor } from '../../types';
 
 interface ChatInterfaceProps {
-  visitor: {
-    visitor_id: string;
-    session_id?: string;
-    metadata?: {
-      name?: string;
-    };
-  };
+  visitor: Visitor;
   selectedAgent?: {
     id: string;
     name: string;
@@ -28,6 +23,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const [chatMessage, setChatMessage] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { 
     chatMessages, 
     isConnected, 
@@ -41,6 +37,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     sendMessageSeen,
     selectedVisitor
   } = useGlobalChat();
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatMessages]);
 
   const handleSendMessage = () => {
     if (!canSend) return;
@@ -113,13 +118,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   }, [chatMessages, isConnected, sendMessageSeen]);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0 gap-2 p-2">
       
       {/* Chat Messages Area */}
-              <div 
-                className="flex-1 overflow-y-auto p-4 space-y-2 bg-white"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db #f3f4f6' }}
-              >
+      <div className="bg-white shadow-sm flex-1 overflow-hidden">
+        <div 
+          className="h-full overflow-y-auto p-4 space-y-2 bg-gray-50 custom-scrollbar"
+        >
+          {/* Agent Joined Message */}
+          {visitor.agent_name && (
+            <div className="flex justify-center items-center py-1">
+              <div className="text-xs text-gray-500 italic">
+                Agent {visitor.agent_name} has joined
+              </div>
+            </div>
+          )}
+          
                 {isLoadingHistory ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="flex items-center gap-2 text-gray-500">
@@ -128,9 +142,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     </div>
                   </div>
                 ) : chatMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                    <MessageCircle className="w-12 h-12 mb-2" />
-                    <span className="text-sm">No messages yet</span>
+                  <div className="flex flex-col items-center justify-center h-full">
                   </div>
                 ) : (
           chatMessages.map((message, index) => {
@@ -218,62 +230,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         )}
         
-        {/* Agent Joined Message */}
-        {!canSend && selectedVisitor?.agent_id && selectedVisitor?.agent_name && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id && (
-          <div className="flex justify-center items-center py-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 max-w-sm">
-              <div className="text-center">
-                <div className="text-sm font-medium text-blue-800 mb-1">
-                  Agent {selectedVisitor.agent_name} has joined
-                </div>
-                <div className="text-xs text-blue-600">
-                  This conversation is being handled by another agent
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-          </div>
+        {/* Auto-scroll anchor */}
+        <div ref={messagesEndRef} />
+        </div>
+      </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="relative border border-gray-300 p-4">
-                  <textarea
-                value={chatMessage}
-                    onChange={handleTyping}
-            onKeyPress={handleKeyPress}
-            onBlur={handleBlur}
-            placeholder={!canSend && selectedVisitor?.agent_id && selectedVisitor?.agent_name && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id 
-              ? `This conversation is being handled by Agent ${selectedVisitor.agent_name}` 
-              : "Type your message..."}
-            className={`w-full text-sm border-none outline-none resize-none pr-16 ${
-              !canSend && selectedVisitor?.agent_id && selectedVisitor?.agent_name && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id
-                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
-                : ''
-            }`}
-            rows={3}
-                    disabled={!isConnected || !canSend}
-          />
+      <div className="bg-white shadow-sm p-4">
+          <div className="relative p-4">
+            <textarea
+              value={chatMessage}
+              onChange={handleTyping}
+              onKeyPress={handleKeyPress}
+              onBlur={handleBlur}
+            placeholder="Type your message..."
+            className="w-full text-sm border-none outline-none resize-none pr-16"
+              rows={4}
+              disabled={!isConnected}
+            />
+          </div>
           
-        
-            </div>
-            
-            {/* Action Buttons */}
-        <div className="flex items-center justify-center gap-6 mt-4">
-          <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
-                  <Smile className="h-4 w-4" />
-            <span>Emoji</span>
-                </button>
-          <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
-                  <ThumbsUp className="h-4 w-4" />
-            <span>Rating</span>
-                </button>
-          <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
-                  <Paperclip className="h-4 w-4" />
-            <span>Attach</span>
-                </button>
-              </div>
-            </div>
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-6 mt-4">
+            <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
+              <Smile className="h-4 w-4" />
+              <span>Emoji</span>
+            </button>
+            <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
+              <ThumbsUp className="h-4 w-4" />
+              <span>Rating</span>
+            </button>
+            <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
+              <Paperclip className="h-4 w-4" />
+              <span>Attach</span>
+            </button>
+          </div>
+      </div>
     </div>
   );
 };

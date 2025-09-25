@@ -3,30 +3,7 @@ import api from "@/lib/axios";
 import { useAuth } from "@/contexts/auth-context";
 import { useGlobalChat } from "@/contexts/global-chat-context";
 import { globalEventEmitter, EVENTS } from "@/lib/event-emitter";
-
-interface Visitor {
-  visitor_id: string;
-  status: string;
-  agent_id?: string;
-  agent_name?: string;
-  started_at?: string;
-  session_id?: string;
-  metadata?: {
-    name?: string;
-    email?: string;
-    ip_address?: string;
-    country?: string;
-    city?: string;
-    region?: string;
-    timezone?: string;
-    user_agent?: string;
-    referrer?: string;
-    page_url?: string;
-    device_type?: string;
-    browser?: string;
-    os?: string;
-  };
-}
+import { Visitor } from "../../types";
 
 export const useVisitors = () => {
   const { user } = useAuth();
@@ -68,13 +45,11 @@ export const useVisitors = () => {
       let pendingVisitorsData: Visitor[] = [];
       if (pendingResult.status === 'fulfilled') {
         pendingVisitorsData = pendingResult.value.data.visitors || [];
-      } else {
       }
 
       let activeVisitorsData: Visitor[] = [];
       if (activeResult.status === 'fulfilled') {
         activeVisitorsData = activeResult.value.data.visitors || [];
-      } else {
       }
 
       const filteredPendingVisitors = pendingVisitorsData.filter(
@@ -98,6 +73,7 @@ export const useVisitors = () => {
       setVisitors(allVisitors);
 
     } catch (error) {
+      console.error('Failed to fetch visitors:', error);
     } finally {
       setLoading(false);
     }
@@ -173,9 +149,9 @@ export const useVisitors = () => {
           // Open the chat dialog (this will auto-minimize any currently open chat)
           openChat(updatedVisitor);
         }
-      } else {
       }
     } catch (error) {
+      console.error('Failed to take visitor:', error);
     } finally {
       setTimeout(() => {
         pendingVisitorOperations.current.delete(visitorId);
@@ -254,16 +230,37 @@ export const useVisitors = () => {
       fetchVisitors();
     };
 
+    const handleUpdateLastMessage = ({ visitorId, lastMessage }: { visitorId: string; lastMessage: { content: string; sender_type: string; timestamp: string } }) => {
+      setVisitors(prev => prev.map(visitor => 
+        visitor.visitor_id === visitorId 
+          ? { ...visitor, last_message: lastMessage }
+          : visitor
+      ));
+      setPendingVisitors(prev => prev.map(visitor => 
+        visitor.visitor_id === visitorId 
+          ? { ...visitor, last_message: lastMessage }
+          : visitor
+      ));
+      setActiveVisitors(prev => prev.map(visitor => 
+        visitor.visitor_id === visitorId 
+          ? { ...visitor, last_message: lastMessage }
+          : visitor
+      ));
+    };
+
+
     // Register event listeners
     globalEventEmitter.on(EVENTS.NEW_VISITOR, handleNewVisitor);
     globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
     globalEventEmitter.on(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
+    globalEventEmitter.on(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, handleUpdateLastMessage);
 
     // Cleanup event listeners
     return () => {
       globalEventEmitter.off(EVENTS.NEW_VISITOR, handleNewVisitor);
       globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
       globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
+      globalEventEmitter.off(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, handleUpdateLastMessage);
     };
   }, [fetchVisitors, removeVisitor]);
 

@@ -186,7 +186,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         const formattedMessages = response.data.data.messages.map((msg: any) => ({
           id: msg.message_id || `${Date.now()}-${Math.random()}`,
           sender: msg.sender_type === 'visitor' ? 'visitor' : 
-                 msg.sender_type === 'agent' ? 'agent' : 'system',
+                 (msg.sender_type === 'agent' || msg.sender_type === 'client_agent') ? 'agent' : 'system',
           sender_id: msg.sender_id,
           message: msg.message,
           timestamp: msg.timestamp || new Date().toISOString(),
@@ -207,6 +207,16 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
           newMap.set(visitor.visitor_id, { ...currentState, chatMessages: formattedMessages, isLoadingHistory: false });
           return newMap;
         });
+
+        // Update last message after loading history
+        if (formattedMessages.length > 0) {
+          const lastMessage = formattedMessages[formattedMessages.length - 1];
+          updateVisitorLastMessage(visitor.visitor_id, {
+            content: lastMessage.message.length > 100 ? lastMessage.message.substring(0, 100) + "..." : lastMessage.message,
+            sender_type: lastMessage.sender,
+            timestamp: lastMessage.timestamp
+          });
+        }
       }
     } catch (error: any) {
       // Handle 404 errors gracefully (session doesn't exist)
@@ -260,7 +270,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
             const newMessage: ChatMessage = {
               id: data.message_id || `${Date.now()}-${Math.random()}`,
               sender: data.sender_type === 'visitor' ? 'visitor' : 
-                     data.sender_type === 'agent' ? 'agent' : 'system',
+                     (data.sender_type === 'agent' || data.sender_type === 'client_agent') ? 'agent' : 'system',
               sender_id: data.sender_id,
               message: data.message,
               timestamp: data.timestamp || new Date().toISOString(),
@@ -272,12 +282,20 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
               const newMap = new Map(prev);
               const currentState = newMap.get(selectedVisitor!.visitor_id);
               if (currentState) {
+                const updatedMessages = [...currentState.chatMessages, newMessage];
                 newMap.set(selectedVisitor!.visitor_id, {
                   ...currentState,
-                  chatMessages: [...currentState.chatMessages, newMessage]
+                  chatMessages: updatedMessages
                 });
               }
               return newMap;
+            });
+            
+            // Update last message in visitor list
+            updateVisitorLastMessage(selectedVisitor!.visitor_id, {
+              content: newMessage.message.length > 100 ? newMessage.message.substring(0, 100) + "..." : newMessage.message,
+              sender_type: newMessage.sender,
+              timestamp: newMessage.timestamp
             });
             
             // If it's a visitor message, send message_seen notification
@@ -317,7 +335,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
                 }
                 return newMap;
               });
-            } else if (data.sender_type === 'agent') {
+            } else if (data.sender_type === 'agent' || data.sender_type === 'client_agent') {
               // Agent has seen visitor's message - update the specific message
               setVisitorChatStates(prev => {
                 const newMap = new Map(prev);
@@ -389,18 +407,16 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
 
   const openChat = useCallback(async (visitor: Visitor) => {
     // If there's a currently open chat and we're opening a different visitor,
-    // automatically minimize the current chat (only if it belongs to current agent)
+    // automatically minimize the current chat
     if (selectedVisitor && selectedVisitor.visitor_id !== visitor.visitor_id && isChatOpen) {
-      // Only add to minimized chats if the current chat belongs to the current agent
-      if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
-        setMinimizedChats(prev => {
-          const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
-          if (!exists) {
-            return [...prev, selectedVisitor];
-          }
-          return prev;
-        });
-      }
+      // Always add to minimized chats when switching to a different visitor
+      setMinimizedChats(prev => {
+        const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
+        if (!exists) {
+          return [...prev, selectedVisitor];
+        }
+        return prev;
+      });
     }
     
     // Show switching animation if we're switching to a different visitor
@@ -464,7 +480,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
 
   const minimizeChat = useCallback(() => {
     if (selectedVisitor) {
-      // Only add to minimized chats if the chat belongs to the current agent
+      // Only allow minimizing if the chat belongs to the current agent
       if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
         setMinimizedChats(prev => {
           const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
@@ -473,17 +489,29 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
           }
           return prev;
         });
+        // Close the chat dialog only if agent can minimize
+        setIsChatOpen(false);
+        setSelectedVisitor(null);
+        setShowEndChatDialog(false);
       }
-      // Close the chat dialog (works for any chat)
-      setIsChatOpen(false);
-      setSelectedVisitor(null);
-      setShowEndChatDialog(false);
+      // If not the assigned agent, don't allow minimizing
     }
   }, [selectedVisitor, currentAgent]);
 
   const maximizeChat = useCallback((visitorId: string) => {
     const visitor = minimizedChats.find(chat => chat.visitor_id === visitorId);
     if (visitor) {
+      // If there's a currently open chat, minimize it first
+      if (selectedVisitor && selectedVisitor.visitor_id !== visitorId && isChatOpen) {
+        setMinimizedChats(prev => {
+          const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
+          if (!exists) {
+            return [...prev, selectedVisitor];
+          }
+          return prev;
+        });
+      }
+      
       setSelectedVisitor(visitor);
       setIsChatOpen(true);
       setShowEndChatDialog(false);
@@ -491,10 +519,10 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
       if (visitor.agent_id && visitor.agent_name && !currentAgent) {
         setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
       }
-      // Remove from minimized chats
+      // Remove the selected chat from minimized chats since it's now maximized
       setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitorId));
     }
-  }, [minimizedChats, currentAgent]);
+  }, [minimizedChats, currentAgent, selectedVisitor, isChatOpen]);
 
   const closeMinimizedChat = useCallback((visitorId: string) => {
     // Find the visitor from minimized chats
@@ -561,6 +589,12 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     };
   }, [selectedVisitor, currentAgent]);
 
+  const updateVisitorLastMessage = useCallback((visitorId: string, lastMessage: { content: string; sender_type: string; timestamp: string }) => {
+    // Emit event to update visitor list
+    globalEventEmitter.emit(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, { visitorId, lastMessage });
+  }, []);
+
+
   const sendChatMessage = useCallback((message: string) => {
     if (!message.trim()) return;
     
@@ -579,7 +613,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     };
     
     currentState.wsConnection.send(JSON.stringify(chatMessage));
-  }, [getCurrentChatState]);
+  }, [getCurrentChatState, currentAgent, selectedVisitor]);
 
   const sendTypingIndicator = useCallback((isTyping: boolean) => {
     // Validate that the logged-in agent can send typing indicators to this visitor

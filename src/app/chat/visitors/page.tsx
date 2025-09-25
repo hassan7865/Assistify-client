@@ -3,43 +3,15 @@
 import { useEffect, useState } from 'react';
 import VisitorSearch from './components/visitor-search';
 import GroupedVisitorDisplay from './components/grouped-visitor-display';
-import MinimizedChatTabs from './components/minimized-chat-tabs';
 import { useVisitors } from './hooks/use-visitors';
 import { useAuth } from '@/contexts/auth-context';
 import { useVisitorActions } from '@/contexts/visitor-actions';
-import { useGlobalChat } from '@/contexts/global-chat-context';
 import { ClientAdminOrAgent } from '@/components/role-guard';
-// No local notifications needed - global system handles everything
-
-// Import Visitor type from the table component
-interface Visitor {
-  visitor_id: string;
-  status: string;
-  agent_id?: string;
-  agent_name?: string;
-  started_at?: string;
-  session_id?: string;
-  metadata?: {
-    name?: string;
-    email?: string;
-    ip_address?: string;
-    country?: string;
-    city?: string;
-    region?: string;
-    timezone?: string;
-    user_agent?: string;
-    referrer?: string;
-    page_url?: string;
-    device_type?: string;
-    browser?: string;
-    os?: string;
-  };
-}
+import { Visitor, getVisitorName, getAgentName } from '../types';
 
 const VisitorPage = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { setTakeVisitorHandler } = useVisitorActions();
-  const { minimizedChats, maximizeChat, closeMinimizedChat } = useGlobalChat();
   const [groupBy, setGroupBy] = useState('Activity');
   const {
     loading,
@@ -233,12 +205,6 @@ const VisitorPage = () => {
             searchTerm={searchTerm}
           />
 
-        {/* Minimized Chat Tabs */}
-        <MinimizedChatTabs
-          minimizedChats={minimizedChats}
-          onMaximize={maximizeChat}
-          onClose={closeMinimizedChat}
-        />
       </div>
     </ClientAdminOrAgent>
   );

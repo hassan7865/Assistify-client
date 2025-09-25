@@ -2,16 +2,7 @@
 
 import React from 'react';
 import { X, MessageCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-
-interface MinimizedChat {
-  visitor_id: string;
-  visitor_name?: string;
-  agent_name?: string;
-  status: string;
-  lastMessage?: string;
-  timestamp?: string;
-}
+import { MinimizedChat } from '../../types';
 
 interface MinimizedChatTabsProps {
   minimizedChats: MinimizedChat[];
@@ -27,7 +18,7 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
   if (minimizedChats.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 z-40" style={{ left: 'calc(16rem)' }}>
+    <div className="fixed bottom-0 z-40" style={{ left: 'calc(13rem)' }}>
       <div className="flex gap-2">
         {minimizedChats.map((chat) => (
           <div

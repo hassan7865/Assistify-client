@@ -35,16 +35,14 @@ const VisitorMonitor: React.FC = () => {
       audioRef.current.volume = 0.6;
       audioRef.current.preload = 'auto';
       
-      audioRef.current.addEventListener('canplaythrough', () => {
-      });
-      
-      audioRef.current.addEventListener('error', (error) => {
+      audioRef.current.addEventListener('error', () => {
         // Don't throw error, just log warning
       });
       
       // Try to load the audio
       audioRef.current.load();
     } catch (error) {
+      // Ignore audio initialization errors
     }
   }, []);
 
@@ -52,24 +50,27 @@ const VisitorMonitor: React.FC = () => {
   const playNotificationSound = useCallback(() => {
     if (audioRef.current) {
       try {
-        // Reset to beginning and play
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch((error) => {
-        });
-      } catch (error) {
-      }
-    } else {
-      // Audio not initialized yet, initialize it
-      initializeAudio();
-      // Try to play after a short delay to allow initialization
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch((error) => {
-          });
-        }
-      }, 100);
+      // Reset to beginning and play
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {
+        // Ignore autoplay errors
+      });
+    } catch (error) {
+      // Ignore audio play errors
     }
+  } else {
+    // Audio not initialized yet, initialize it
+    initializeAudio();
+    // Try to play after a short delay to allow initialization
+    setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {
+          // Ignore autoplay errors
+        });
+      }
+    }, 100);
+  }
   }, [initializeAudio]);
 
 

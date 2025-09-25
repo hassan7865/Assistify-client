@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Edit2, MapPin, Monitor, Globe, Download, Ban } from 'lucide-react';
+import { X, User, Edit2, MapPin, Monitor, Globe, Download } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatConversation } from '../hooks/use-chat-history';
 import { getCountryFlag, getBrowserIcon, getOSIcon, getDeviceIcon } from '@/lib/visitor-icons';
+import { getConversationVisitorName, getConversationAgentName } from '../../types';
 
 interface HistorySidebarProps {
   conversation: ChatConversation;
@@ -31,18 +32,6 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
     });
   };
 
-  const getVisitorName = () => {
-    return conversation.metadata?.name || 
-           conversation.visitor_id?.substring(0, 8) || 
-           'Anonymous';
-  };
-
-  const getAgentName = () => {
-    if (conversation.agent_info) {
-      return conversation.agent_info.name;
-    }
-    return conversation.agent_id ? 'Agent' : 'Unassigned';
-  };
 
   const getConversationDuration = () => {
     try {
@@ -380,13 +369,13 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                 {/* Join Messages */}
                 <div className="text-center text-sm text-gray-500 italic">
                   <div className="flex justify-between items-center">
-                    <span>{getAgentName()} has joined.</span>
+                    <span>{getConversationAgentName(conversation)} has joined.</span>
                     <span className="text-xs text-gray-400">{formatTime(conversation.created_at)}</span>
                   </div>
                 </div>
                 <div className="text-center text-sm text-gray-500 italic">
                   <div className="flex justify-between items-center">
-                    <span>{getVisitorName()} has joined.</span>
+                    <span>{getConversationVisitorName(conversation)} has joined.</span>
                     <span className="text-xs text-gray-400">{formatTime(conversation.created_at)}</span>
                   </div>
                 </div>
@@ -394,7 +383,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                 {/* Agent Message */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-gray-900">{getAgentName()}</span>
+                    <span className="font-bold text-gray-900">{getConversationAgentName(conversation)}</span>
                     <span className="text-xs text-gray-500">{formatTime(conversation.created_at)}</span>
                   </div>
                   <div className="text-sm text-gray-900">
@@ -442,7 +431,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                 {/* Leave Message */}
                 <div className="text-center text-sm text-gray-500 italic">
                   <div className="flex justify-between items-center">
-                    <span>{getVisitorName()} has left.</span>
+                    <span>{getConversationVisitorName(conversation)} has left.</span>
                     <span className="text-xs text-gray-400">{formatTime(conversation.updated_at)}</span>
                   </div>
                 </div>

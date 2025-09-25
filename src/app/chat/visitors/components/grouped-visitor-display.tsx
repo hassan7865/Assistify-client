@@ -1,43 +1,18 @@
 "use client";
 
 import React from 'react';
-import { ChevronDown, ChevronUp, MessageCircle, Globe, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, MessageCircle, Search } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { 
   getCountryFlag, 
   getBrowserIcon, 
   getOSIcon, 
-  getDeviceIcon, 
   getOnlineStatus, 
   getReferrerDisplay, 
   getMessageCount, 
   getStatusColor 
 } from '@/lib/visitor-icons';
-
-interface Visitor {
-  visitor_id: string;
-  status: string;
-  agent_id?: string;
-  agent_name?: string;
-  started_at?: string;
-  session_id?: string;
-  message_count?: number;
-  metadata?: {
-    name?: string;
-    email?: string;
-    ip_address?: string;
-    country?: string;
-    city?: string;
-    region?: string;
-    timezone?: string;
-    user_agent?: string;
-    referrer?: string;
-    page_url?: string;
-    device_type?: string;
-    browser?: string;
-    os?: string;
-  };
-}
+import { Visitor } from '../../types';
 
 interface GroupedVisitors {
   [key: string]: Visitor[];
@@ -212,10 +187,10 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         </span>
                       </div>
                       
-                      {/* Messages */}
-                      <div className="w-12">
-                        <span className="text-xs text-gray-600">
-                          {getMessageCount(visitor)}
+                      {/* Last Message */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-gray-600 truncate block">
+                          {visitor.last_message?.content || 'No messages yet'}
                         </span>
                       </div>
                     </div>

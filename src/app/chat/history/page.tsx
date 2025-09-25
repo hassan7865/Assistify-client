@@ -16,6 +16,7 @@ import {
 import HistorySidebar from './components/history-sidebar';
 import { useChatHistory, ChatConversation } from './hooks/use-chat-history';
 import { useAuth } from '@/contexts/auth-context';
+import { getConversationVisitorName, getConversationAgentName } from '../types';
 
 export default function HistoryPage() {
   const { user } = useAuth();
@@ -101,18 +102,6 @@ export default function HistoryPage() {
     return `${diffInMonths} months ago`;
   };
 
-  const getVisitorName = (conversation: ChatConversation) => {
-    return conversation.metadata?.name || 
-           conversation.visitor_id?.substring(0, 8) || 
-           'Anonymous';
-  };
-
-  const getAgentName = (conversation: ChatConversation) => {
-    if (conversation.agent_info) {
-      return conversation.agent_info.name;
-    }
-    return conversation.agent_id ? 'Agent' : 'Unassigned';
-  };
 
   if (loading && conversations.length === 0) {
     return (
@@ -242,11 +231,11 @@ export default function HistoryPage() {
                       <TableCell className="py-2 px-2">
                         <div className="flex items-center gap-1">
                           <input type="checkbox" className="rounded border-gray-300 w-3 h-3" />
-                          <span className="text-gray-600 text-xs">{getVisitorName(conversation)}</span>
+                          <span className="text-gray-600 text-xs">{getConversationVisitorName(conversation)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="py-2 px-3">
-                        <span className="text-gray-600 text-xs">{getAgentName(conversation)}</span>
+                        <span className="text-gray-600 text-xs">{getConversationAgentName(conversation)}</span>
                       </TableCell>
                       <TableCell className="py-2 px-3">
                         <span className="text-gray-600 text-xs">{formatTimeAgo(conversation.updated_at)}</span>

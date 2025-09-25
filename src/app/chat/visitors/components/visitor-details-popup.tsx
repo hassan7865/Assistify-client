@@ -1,37 +1,16 @@
 "use client";
 
 import React from 'react';
-import { X, MessageCircle, Smartphone, Monitor, Target, ChevronDown, Minus } from 'lucide-react';
+import { X, ChevronDown, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface from './chat-interface';
 import VisitorInfoPanel from './visitor-info-panel';
 import { useGlobalChat } from '@/contexts/global-chat-context';
-import { getCountryFlag } from '@/lib/visitor-icons';
+import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
+import { Visitor, ChatMessage } from '../../types';
 
 interface VisitorDetailsPopupProps {
-  visitor: {
-    visitor_id: string;
-    status: string;
-    agent_id?: string;
-    agent_name?: string;
-    started_at?: string;
-    session_id?: string;
-    metadata?: {
-      name?: string;
-      email?: string;
-      ip_address?: string;
-      country?: string;
-      city?: string;
-      region?: string;
-      timezone?: string;
-      user_agent?: string;
-      referrer?: string;
-      page_url?: string;
-      device_type?: string;
-      browser?: string;
-      os?: string;
-    };
-  };
+  visitor: Visitor;
   selectedAgent?: {
     id: string;
     name: string;
@@ -43,15 +22,6 @@ interface VisitorDetailsPopupProps {
   onEndChat: () => void;
   setShowEndChatDialog: (show: boolean) => void;
   onChatEnded?: () => void;
-}
-
-interface ChatMessage {
-  id: string;
-  sender: 'visitor' | 'agent' | 'system';
-  sender_id?: string;
-  message: string;
-  timestamp: string;
-  status?: 'delivered' | 'read';
 }
 
 const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({ 
@@ -78,7 +48,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
   return (
     <div 
       key={visitor.visitor_id} 
-      className="fixed right-0 top-0 h-full w-[40%] bg-white shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50"
+      className="fixed right-0 top-0 h-full w-[40%] bg-gray-100 shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50"
     >
       {/* Switching Overlay */}
       {isSwitchingVisitor && (
@@ -90,19 +60,27 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
         </div>
       )}
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-gray-800 text-white">
+      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-gray-700 text-white">
         <div className="flex items-center gap-2">
-          {getCountryFlag(visitor.metadata?.country)}
           <span className="text-xs font-medium text-white">Visitor {visitor.visitor_id}</span>
+          {getCountryFlag(visitor.metadata?.country)}
+          {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent, 'h-3 w-3')}
+          {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent, 'h-3 w-3')}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="text-xs text-white hover:bg-gray-300 px-2 py-1">
+          <Button variant="ghost" size="sm" className="text-xs text-white px-2 py-1">
             Actions
             <ChevronDown className="h-2 w-2 ml-1" />
           </Button>
           <button 
             onClick={onMinimize}
-            className="h-5 w-5 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600"
+            disabled={!canEndChat}
+            className={`h-5 w-5 rounded-full flex items-center justify-center ${
+              canEndChat 
+                ? 'bg-gray-600 hover:bg-gray-500' 
+                : 'bg-gray-500 cursor-not-allowed'
+            }`}
+            title={canEndChat ? 'Minimize chat' : 'Only the assigned agent can minimize this chat'}
           >
             <Minus className="h-2 w-2 text-white" />
           </button>
@@ -194,7 +172,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
             </div>
 
             {/* Right Panel - Visitor Info */}
-            <div className="w-60 border-l border-gray-200">
+            <div className="w-60">
               <VisitorInfoPanel visitor={visitor} chatMessages={chatMessages} />
             </div>
           </>

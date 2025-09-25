@@ -8,6 +8,7 @@ import { VisitorRequestsProvider } from "@/contexts/visitor-requests";
 import { GlobalChatProvider } from "@/contexts/global-chat-context";
 import GlobalChatComponents from "@/components/global-chat-components";
 import VisitorMonitor from "./components/visitor-monitor";
+import GlobalMinimizedChatTabs from "./components/global-minimized-chat-tabs";
 
 export default function ChatLayout({
   children,
@@ -20,7 +21,7 @@ export default function ChatLayout({
         <VisitorRequestsProvider>
           <VisitorActionsProvider>
             <SidebarProvider defaultOpen={true} variant="sidebar">
-              <div className="flex h-screen w-full overflow-hidden">
+              <div className="flex h-screen w-full overflow-hidden relative">
                 <AppSidebar />
 
                 <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
@@ -35,6 +36,9 @@ export default function ChatLayout({
                     </div>
                   </div>
                 </SidebarInset>
+                
+                {/* Global Minimized Chat Tabs - Visible on all chat pages */}
+                <GlobalMinimizedChatTabs />
               </div>
             </SidebarProvider>
           </VisitorActionsProvider>
