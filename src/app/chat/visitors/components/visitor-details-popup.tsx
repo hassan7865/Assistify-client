@@ -74,13 +74,12 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
           </Button>
           <button 
             onClick={onMinimize}
-            disabled={!canEndChat}
             className={`h-5 w-5 rounded-full flex items-center justify-center ${
               canEndChat 
                 ? 'bg-gray-600 hover:bg-gray-500' 
-                : 'bg-gray-500 cursor-not-allowed'
+                : 'bg-gray-500 hover:bg-gray-400'
             }`}
-            title={canEndChat ? 'Minimize chat' : 'Only the assigned agent can minimize this chat'}
+            title={canEndChat ? 'Minimize chat' : 'Close chat (not assigned to you)'}
           >
             <Minus className="h-2 w-2 text-white" />
           </button>
@@ -143,7 +142,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
                     Cannot end chat
                   </h3>
                   <p className="text-xs text-gray-600 mb-4">
-                    Only Agent {visitor.agent_name} can end this chat. You can minimize it instead.
+                    Only Agent {visitor.agent_name} can end this chat. You can close this dialog instead.
                   </p>
                   
                   <div className="flex gap-2 justify-end">

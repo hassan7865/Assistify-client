@@ -193,20 +193,20 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
           status: msg.status || undefined
         }));
         
-        // Update the visitor's chat state directly
-        setVisitorChatStates(prev => {
-          const newMap = new Map(prev);
-          const currentState = newMap.get(visitor.visitor_id) || {
-            chatMessages: [],
-            isConnected: false,
-            isConnecting: false,
-            isTyping: false,
-            isLoadingHistory: false,
-            wsConnection: null
-          };
-          newMap.set(visitor.visitor_id, { ...currentState, chatMessages: formattedMessages, isLoadingHistory: false });
-          return newMap;
-        });
+         // Update the visitor's chat state directly
+         setVisitorChatStates(prev => {
+           const newMap = new Map(prev);
+           const currentState = newMap.get(visitor.visitor_id) || {
+             chatMessages: [],
+             isConnected: false,
+             isConnecting: false,
+             isTyping: false,
+             isLoadingHistory: false,
+             wsConnection: null
+           };
+           newMap.set(visitor.visitor_id, { ...currentState, chatMessages: formattedMessages, isLoadingHistory: false });
+           return newMap;
+         });
 
         // Update last message after loading history
         if (formattedMessages.length > 0) {
@@ -246,11 +246,20 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     }
     
     const currentState = getCurrentChatState();
-    if (currentState.isConnecting || currentState.wsConnection?.readyState === WebSocket.OPEN) {
+    
+    // Prevent multiple connection attempts
+    if (currentState.isConnecting || 
+        (currentState.wsConnection && currentState.wsConnection.readyState === WebSocket.OPEN) ||
+        (currentState.wsConnection && currentState.wsConnection.readyState === WebSocket.CONNECTING)) {
       return;
     }
     
-    updateCurrentChatState({ isConnecting: true });
+    // Close any existing connection before creating a new one
+    if (currentState.wsConnection) {
+      currentState.wsConnection.close(1000, 'Reconnecting');
+    }
+    
+    updateCurrentChatState({ isConnecting: true, isConnected: false });
     
     const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/chat/${selectedVisitor.session_id}/agent/${currentAgent.id}`;
     
@@ -258,9 +267,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
       const ws = new WebSocket(wsUrl);
       updateCurrentChatState({ wsConnection: ws });
 
-      ws.onopen = () => {
-        updateCurrentChatState({ isConnected: true, isConnecting: false });
-      };
 
       ws.onmessage = (event) => {
         try {
@@ -359,7 +365,9 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         }
       };
 
-      ws.onclose = (event) => {
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
         setVisitorChatStates(prev => {
           const newMap = new Map(prev);
           const currentState = newMap.get(selectedVisitor!.visitor_id);
@@ -375,7 +383,20 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         });
       };
 
-      ws.onerror = (error) => {
+      // Add connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.close(1000, 'Connection timeout');
+        }
+      }, 10000); // 10 second timeout
+
+      ws.onopen = () => {
+        clearTimeout(connectionTimeout);
+        updateCurrentChatState({ isConnected: true, isConnecting: false });
+      };
+
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
         setVisitorChatStates(prev => {
           const newMap = new Map(prev);
           const currentState = newMap.get(selectedVisitor!.visitor_id);
@@ -391,13 +412,16 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         });
       };
     } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
       setVisitorChatStates(prev => {
         const newMap = new Map(prev);
         const currentState = newMap.get(selectedVisitor!.visitor_id);
         if (currentState) {
           newMap.set(selectedVisitor!.visitor_id, {
             ...currentState,
-            isConnecting: false
+            isConnected: false,
+            isConnecting: false,
+            wsConnection: null
           });
         }
         return newMap;
@@ -433,10 +457,13 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     
     // Remove from minimized chats if it was there (the new visitor)
     setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitor.visitor_id));
+    
     // Ensure agent is set if visitor has agent_id
     if (visitor.agent_id && visitor.agent_name && !currentAgent) {
       setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
     }
+    
+    
     // Always fetch fresh chat history if session_id exists and is valid
     // Don't await this - let it run in background so chat dialog opens immediately
     if (visitor.session_id && visitor.session_id.trim() !== '') {
@@ -448,23 +475,51 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
 
   // Connect WebSocket when visitor and agent are available (only if visitor belongs to current agent)
   useEffect(() => {
-    if (selectedVisitor?.session_id && currentAgent?.id && isChatOpen) {
-      // Only connect WebSocket if the selected visitor belongs to the current agent
-      if (selectedVisitor.agent_id && selectedVisitor.agent_id === currentAgent.id) {
-        const currentState = getCurrentChatState();
-        if (!currentState.isConnecting && (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN)) {
-          connectChatWebSocket();
-        }
-      } else {
-        // If visitor doesn't belong to current agent, set connection state to not connected
-        updateCurrentChatState({
-          isConnected: false,
-          isConnecting: false,
-          wsConnection: null
-        });
-      }
+    if (!selectedVisitor?.session_id || !currentAgent?.id || !isChatOpen) {
+      return;
     }
-  }, [selectedVisitor?.session_id, selectedVisitor?.agent_id, currentAgent?.id, isChatOpen, getCurrentChatState, connectChatWebSocket, updateCurrentChatState]);
+
+    // Only connect WebSocket if the selected visitor belongs to the current agent
+    if (selectedVisitor.agent_id && selectedVisitor.agent_id === currentAgent.id) {
+      const currentState = getCurrentChatState();
+      
+      // Only connect if not already connected or connecting
+      if (!currentState.isConnecting && (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN)) {
+        connectChatWebSocket();
+      }
+    } else {
+      // If visitor doesn't belong to current agent, disconnect
+      const currentState = getCurrentChatState();
+      if (currentState.wsConnection) {
+        currentState.wsConnection.close(1000, 'Visitor not assigned to current agent');
+      }
+      updateCurrentChatState({
+        isConnected: false,
+        isConnecting: false,
+        wsConnection: null
+      });
+    }
+
+    // Cleanup function to close WebSocket when dependencies change
+    return () => {
+      const currentState = getCurrentChatState();
+      if (currentState.wsConnection && currentState.wsConnection.readyState === WebSocket.OPEN) {
+        currentState.wsConnection.close(1000, 'Switching visitor or closing chat');
+      }
+    };
+  }, [selectedVisitor?.visitor_id, selectedVisitor?.session_id, selectedVisitor?.agent_id, currentAgent?.id, isChatOpen]);
+
+  // Cleanup all WebSocket connections when component unmounts
+  useEffect(() => {
+    return () => {
+      // Close all WebSocket connections
+      visitorChatStates.forEach((state) => {
+        if (state.wsConnection && state.wsConnection.readyState === WebSocket.OPEN) {
+          state.wsConnection.close(1000, 'Component unmounting');
+        }
+      });
+    };
+  }, []);
 
   const closeChat = useCallback(() => {
     // Close WebSocket connection for current visitor
@@ -479,22 +534,26 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
   }, [getCurrentChatState]);
 
   const minimizeChat = useCallback(() => {
-    if (selectedVisitor) {
-      // Only allow minimizing if the chat belongs to the current agent
-      if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
-        setMinimizedChats(prev => {
-          const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
-          if (!exists) {
-            return [...prev, selectedVisitor];
-          }
-          return prev;
-        });
-        // Close the chat dialog only if agent can minimize
-        setIsChatOpen(false);
-        setSelectedVisitor(null);
-        setShowEndChatDialog(false);
-      }
-      // If not the assigned agent, don't allow minimizing
+    if (!selectedVisitor) return;
+    
+    // Only allow minimizing if the chat belongs to the current agent
+    if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
+      setMinimizedChats(prev => {
+        const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
+        if (!exists) {
+          return [...prev, selectedVisitor];
+        }
+        return prev;
+      });
+      // Close the chat dialog only if agent can minimize
+      setIsChatOpen(false);
+      setSelectedVisitor(null);
+      setShowEndChatDialog(false);
+    } else {
+      // If not the assigned agent, just close the dialog (don't minimize)
+      setIsChatOpen(false);
+      setSelectedVisitor(null);
+      setShowEndChatDialog(false);
     }
   }, [selectedVisitor, currentAgent]);
 

@@ -121,7 +121,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     <div className="flex flex-col h-full min-h-0 gap-2 p-2">
       
       {/* Chat Messages Area */}
-      <div className="bg-white shadow-sm flex-1 overflow-hidden">
+      <div className="bg-white shadow-sm flex-1 overflow-hidden min-h-0">
         <div 
           className="h-full overflow-y-auto p-4 space-y-2 bg-gray-50 custom-scrollbar"
         >
@@ -235,16 +235,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       </div>
 
-      {/* Input Area */}
-      <div className="bg-white shadow-sm p-4">
+      {/* Input Area or Agent Info Card */}
+      {canSend ? (
+        <div className="bg-white shadow-sm p-4">
           <div className="relative p-4">
             <textarea
               value={chatMessage}
               onChange={handleTyping}
               onKeyPress={handleKeyPress}
               onBlur={handleBlur}
-            placeholder="Type your message..."
-            className="w-full text-sm border-none outline-none resize-none pr-16"
+              placeholder="Type your message..."
+              className="w-full text-sm border-none outline-none resize-none pr-16"
               rows={4}
               disabled={!isConnected}
             />
@@ -265,7 +266,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <span>Attach</span>
             </button>
           </div>
-      </div>
+        </div>
+      ) : (
+        <div className="bg-white shadow-sm p-4">
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="text-xs italic text-gray-500">
+                Agent {visitor.agent_name} has joined the conversation
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
