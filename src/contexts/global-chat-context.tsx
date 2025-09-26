@@ -411,8 +411,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
           return newMap;
         });
         
-        // Remove from minimized chats when session disconnects
-        setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== selectedVisitor!.visitor_id));
+        // DON'T remove from minimized chats when session disconnects - keep them until agent deliberately ends chat
         
         // If this is the currently selected visitor and chat is open, close it
         if (selectedVisitor && isChatOpen) {
@@ -465,8 +464,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     setShowEndChatDialog(false);
     setIsSwitchingVisitor(false);
     
-    // Remove from minimized chats if it was there (the new visitor)
-    setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitor.visitor_id));
+    // DON'T remove from minimized chats - keep it there but mark as active
     
     // Ensure agent is set if visitor has agent_id
     if (visitor.agent_id && visitor.agent_name && !currentAgent) {
@@ -531,6 +529,31 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     };
   }, []);
 
+  // Listen for visitor_assigned events to remove chats from minimized when taken by another agent
+  useEffect(() => {
+    const handleVisitorTaken = (eventData: any) => {
+      const { visitor_id, assigned_agent_id } = eventData;
+      
+      // Only remove from minimized chats if assigned to a different agent
+      if (currentAgent?.id && assigned_agent_id !== currentAgent.id) {
+        setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitor_id));
+        
+        // Also close the chat if it's currently open and belongs to this visitor
+        if (selectedVisitor?.visitor_id === visitor_id && isChatOpen) {
+          setIsChatOpen(false);
+          setSelectedVisitor(null);
+          setShowEndChatDialog(false);
+        }
+      }
+    };
+
+    globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
+    
+    return () => {
+      globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
+    };
+  }, [currentAgent, selectedVisitor, isChatOpen]);
+
   const closeChat = useCallback(() => {
     // Close WebSocket connection for current visitor
     const currentState = getCurrentChatState();
@@ -565,7 +588,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
       setSelectedVisitor(null);
       setShowEndChatDialog(false);
     }
-  }, [selectedVisitor, currentAgent]);
+  }, [selectedVisitor, currentAgent, minimizedChats]);
 
   const maximizeChat = useCallback((visitorId: string) => {
     const visitor = minimizedChats.find(chat => chat.visitor_id === visitorId);
@@ -581,6 +604,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
         });
       }
       
+      // DON'T remove from minimized chats - keep it there but mark as active
       setSelectedVisitor(visitor);
       setIsChatOpen(true);
       setShowEndChatDialog(false);
@@ -588,8 +612,6 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
       if (visitor.agent_id && visitor.agent_name && !currentAgent) {
         setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
       }
-      // Remove the selected chat from minimized chats since it's now maximized
-      setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitorId));
     }
   }, [minimizedChats, currentAgent, selectedVisitor, isChatOpen]);
 
@@ -602,8 +624,7 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
       setIsChatOpen(true);
       // Show the end chat dialog immediately
       setShowEndChatDialog(true);
-      // Remove from minimized chats
-      setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitorId));
+      // DON'T remove from minimized chats - let handleEndChat do it when chat is actually ended
     }
   }, [minimizedChats]);
 

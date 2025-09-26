@@ -167,8 +167,19 @@ export const useVisitors = () => {
 
 
   const handleVisitorClick = useCallback((visitor: Visitor) => {
+    // Add to minimized chats if the visitor belongs to current agent
+    if (visitor.agent_id && CURRENT_AGENT?.id && visitor.agent_id === CURRENT_AGENT.id) {
+      setMinimizedChats(prev => {
+        const exists = prev.some(chat => chat.visitor_id === visitor.visitor_id);
+        if (!exists) {
+          return [...prev, visitor];
+        }
+        return prev;
+      });
+    }
+    
     openChat(visitor);
-  }, [openChat]);
+  }, [openChat, setMinimizedChats]);
 
   const filterVisitors = useCallback((visitorList: Visitor[]) => {
     if (!searchTerm.trim()) return visitorList;

@@ -14,6 +14,26 @@ const VisitorMonitor: React.FC = () => {
   const sseManager = SSEManager.getInstance();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
+  // Store visitor data from new_visitor events to use later in visitor_assigned events
+  const visitorDataCache = useRef<Map<string, any>>(new Map());
+  
+  // Cleanup old visitor data periodically to prevent memory leaks
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const maxAge = 5 * 60 * 1000; // 5 minutes
+      
+      for (const [visitorId, data] of visitorDataCache.current.entries()) {
+        const age = now - (data.timestamp * 1000); // Convert to milliseconds
+        if (age > maxAge) {
+          visitorDataCache.current.delete(visitorId);
+        }
+      }
+    }, 60000); // Run every minute
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
+  
 
   // Get current agent from user context (same logic as useVisitors hook)
   const getCurrentAgent = useCallback(() => {
@@ -81,6 +101,14 @@ const VisitorMonitor: React.FC = () => {
     if (data.type == "new_visitor") {
       const visitorId = data.visitor_id;
       
+      // Store visitor data for later use in visitor_assigned events
+      visitorDataCache.current.set(visitorId, {
+        session_id: data.session_id,
+        metadata: data.visitor_metadata,
+        timestamp: data.timestamp,
+        client_id: data.client_id
+      });
+      
       // Add visitor request instead of notification
       addRequest({
         visitor_id: visitorId,
@@ -101,15 +129,25 @@ const VisitorMonitor: React.FC = () => {
       const assignedAgentId = data.assigned_agent_id;
       const currentAgent = getCurrentAgent();
       
+      // Get stored visitor data from new_visitor event
+      const storedVisitorData = visitorDataCache.current.get(visitorId);
+      
       // Remove visitor request when assigned
       removeRequest(visitorId);
       
       // Emit global event to notify other components (especially useVisitors hook)
-      globalEventEmitter.emit(EVENTS.VISITOR_TAKEN, {
+      const eventData = {
         visitor_id: visitorId,
         assigned_agent_id: assignedAgentId,
+        session_id: storedVisitorData?.session_id || data.session_id, // Use stored session_id
+        metadata: storedVisitorData?.metadata || data.visitor_metadata, // Use stored metadata
         timestamp: new Date().toISOString()
-      });
+      };
+      
+      globalEventEmitter.emit(EVENTS.VISITOR_TAKEN, eventData);
+      
+      // Clean up stored data after use
+      visitorDataCache.current.delete(visitorId);
     }
   }, [getCurrentAgent, addRequest, removeRequest, playNotificationSound]);
 
