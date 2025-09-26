@@ -3,7 +3,6 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
-  FiBarChart3, 
   FiMessageCircle, 
   FiBookOpen, 
   FiPhone, 
