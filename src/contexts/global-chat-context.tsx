@@ -410,6 +410,16 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
           }
           return newMap;
         });
+        
+        // Remove from minimized chats when session disconnects
+        setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== selectedVisitor!.visitor_id));
+        
+        // If this is the currently selected visitor and chat is open, close it
+        if (selectedVisitor && isChatOpen) {
+          setIsChatOpen(false);
+          setSelectedVisitor(null);
+          setShowEndChatDialog(false);
+        }
       };
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
@@ -538,12 +548,12 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     
     // Only allow minimizing if the chat belongs to the current agent
     if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
+      // Always add to minimized chats when minimizing - ensure we add the current visitor
       setMinimizedChats(prev => {
-        const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
-        if (!exists) {
-          return [...prev, selectedVisitor];
-        }
-        return prev;
+        // Remove any existing entry for this visitor first to avoid duplicates
+        const filtered = prev.filter(chat => chat.visitor_id !== selectedVisitor.visitor_id);
+        // Add the current visitor
+        return [...filtered, selectedVisitor];
       });
       // Close the chat dialog only if agent can minimize
       setIsChatOpen(false);

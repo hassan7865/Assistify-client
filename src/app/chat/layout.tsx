@@ -31,7 +31,7 @@ export default function ChatLayout({
                     <VisitorMonitor />
                     
                     {/* Page Content */}
-                    <div className="flex-1 overflow-y-auto p-1">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-1">
                       {children}
                     </div>
                   </div>
