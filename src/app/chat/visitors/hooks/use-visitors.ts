@@ -7,7 +7,7 @@ import { Visitor } from "../../types";
 
 export const useVisitors = () => {
   const { user } = useAuth();
-  const { openChat, setCurrentAgent, minimizedChats, setMinimizedChats } = useGlobalChat();
+  const { openChat, setCurrentAgent, minimizedChats } = useGlobalChat();
   
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [pendingVisitors, setPendingVisitors] = useState<Visitor[]>([]);
@@ -133,19 +133,8 @@ export const useVisitors = () => {
             : v
         ));
         
-        // If skipRefresh is false, add visitor to minimized tabs AND open chat dialog
+        // If skipRefresh is false, open chat dialog (this will handle minimizing current chat if needed)
         if (!skipRefresh) {
-          // Only add to minimized chats if the assigned agent is the currently logged in agent
-          if (updatedVisitor.agent_id && CURRENT_AGENT?.id && updatedVisitor.agent_id === CURRENT_AGENT.id) {
-            setMinimizedChats(prev => {
-              const exists = prev.some(chat => chat.visitor_id === updatedVisitor.visitor_id);
-              if (!exists) {
-                return [...prev, updatedVisitor];
-              }
-              return prev;
-            });
-          }
-          
           // Open the chat dialog (this will auto-minimize any currently open chat)
           openChat(updatedVisitor);
         }
@@ -167,19 +156,9 @@ export const useVisitors = () => {
 
 
   const handleVisitorClick = useCallback((visitor: Visitor) => {
-    // Add to minimized chats if the visitor belongs to current agent
-    if (visitor.agent_id && CURRENT_AGENT?.id && visitor.agent_id === CURRENT_AGENT.id) {
-      setMinimizedChats(prev => {
-        const exists = prev.some(chat => chat.visitor_id === visitor.visitor_id);
-        if (!exists) {
-          return [...prev, visitor];
-        }
-        return prev;
-      });
-    }
-    
+    // Open the chat dialog (this will handle minimizing current chat if needed)
     openChat(visitor);
-  }, [openChat, setMinimizedChats]);
+  }, [openChat]);
 
   const filterVisitors = useCallback((visitorList: Visitor[]) => {
     if (!searchTerm.trim()) return visitorList;

@@ -35,7 +35,7 @@ export interface ChatMessage {
   sender_id?: string;
   message: string;
   timestamp: string;
-  status?: 'delivered' | 'read';
+  seen_status?: 'delivered' | 'read';
 }
 
 export interface MinimizedChat {

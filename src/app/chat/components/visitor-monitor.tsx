@@ -139,8 +139,8 @@ const VisitorMonitor: React.FC = () => {
       const eventData = {
         visitor_id: visitorId,
         assigned_agent_id: assignedAgentId,
-        session_id: storedVisitorData?.session_id || data.session_id, // Use stored session_id
-        metadata: storedVisitorData?.metadata || data.visitor_metadata, // Use stored metadata
+        session_id: data.session_id || storedVisitorData?.session_id, // Prefer session_id from visitor_assigned event, fallback to stored
+        metadata: data.visitor_metadata || storedVisitorData?.metadata, // Prefer metadata from visitor_assigned event, fallback to stored
         timestamp: new Date().toISOString()
       };
       

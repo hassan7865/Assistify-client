@@ -1,10 +1,21 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react';
+import React, { 
+  createContext, 
+  useContext, 
+  useState, 
+  useCallback, 
+  ReactNode, 
+  useRef, 
+  useEffect,
+  useMemo,
+  useReducer
+} from 'react';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 import { API_BASE_URL } from '@/lib/axios';
 import api from '@/lib/axios';
 
+// Types
 interface Visitor {
   visitor_id: string;
   status: string;
@@ -35,7 +46,18 @@ interface ChatMessage {
   sender_id?: string;
   message: string;
   timestamp: string;
-  status?: 'delivered' | 'read';
+  seen_status?: 'delivered' | 'read';
+}
+
+interface VisitorChatState {
+  chatMessages: ChatMessage[];
+  isConnected: boolean;
+  isConnecting: boolean;
+  isTyping: boolean;
+  isLoadingHistory: boolean;
+  wsConnection: WebSocket | null;
+  connectionTimeout: NodeJS.Timeout | null;
+  lastActivity: number;
 }
 
 interface GlobalChatContextType {
@@ -48,7 +70,6 @@ interface GlobalChatContextType {
   
   // Minimized Chats State
   minimizedChats: Visitor[];
-  setMinimizedChats: React.Dispatch<React.SetStateAction<Visitor[]>>;
   
   // WebSocket State (for current selected visitor)
   isConnected: boolean;
@@ -79,6 +100,148 @@ interface GlobalChatContextType {
   setCurrentAgent: (agent: { id: string; name: string } | null) => void;
 }
 
+// State Management with useReducer
+type ChatAction = 
+  | { type: 'SET_SELECTED_VISITOR'; payload: Visitor | null }
+  | { type: 'SET_CHAT_OPEN'; payload: boolean }
+  | { type: 'SET_END_CHAT_DIALOG'; payload: boolean }
+  | { type: 'SET_SWITCHING_VISITOR'; payload: boolean }
+  | { type: 'SET_ENDING_CHAT'; payload: boolean }
+  | { type: 'SET_MINIMIZED_CHATS'; payload: Visitor[] }
+  | { type: 'ADD_MINIMIZED_CHAT'; payload: Visitor }
+  | { type: 'REMOVE_MINIMIZED_CHAT'; payload: string }
+  | { type: 'UPDATE_VISITOR_CHAT_STATE'; payload: { visitorId: string; updates: Partial<VisitorChatState> } }
+  | { type: 'REMOVE_VISITOR_CHAT_STATE'; payload: string }
+  | { type: 'ADD_MESSAGE'; payload: { visitorId: string; message: ChatMessage } }
+  | { type: 'UPDATE_MESSAGE_STATUS'; payload: { visitorId: string; messageId: string; status: 'read' } }
+  | { type: 'SET_TYPING'; payload: { visitorId: string; isTyping: boolean } };
+
+interface ChatState {
+  selectedVisitor: Visitor | null;
+  isChatOpen: boolean;
+  showEndChatDialog: boolean;
+  isSwitchingVisitor: boolean;
+  isEndingChat: boolean;
+  minimizedChats: Visitor[];
+  visitorChatStates: Map<string, VisitorChatState>;
+}
+
+const initialState: ChatState = {
+  selectedVisitor: null,
+  isChatOpen: false,
+  showEndChatDialog: false,
+  isSwitchingVisitor: false,
+  isEndingChat: false,
+  minimizedChats: [],
+  visitorChatStates: new Map(),
+};
+
+const createDefaultChatState = (): VisitorChatState => ({
+  chatMessages: [],
+  isConnected: false,
+  isConnecting: false,
+  isTyping: false,
+  isLoadingHistory: false,
+  wsConnection: null,
+  connectionTimeout: null,
+  lastActivity: Date.now(),
+});
+
+function chatReducer(state: ChatState, action: ChatAction): ChatState {
+  switch (action.type) {
+    case 'SET_SELECTED_VISITOR':
+      return { ...state, selectedVisitor: action.payload };
+    
+    case 'SET_CHAT_OPEN':
+      return { ...state, isChatOpen: action.payload };
+    
+    case 'SET_END_CHAT_DIALOG':
+      return { ...state, showEndChatDialog: action.payload };
+    
+    case 'SET_SWITCHING_VISITOR':
+      return { ...state, isSwitchingVisitor: action.payload };
+    
+    case 'SET_ENDING_CHAT':
+      return { ...state, isEndingChat: action.payload };
+    
+    case 'SET_MINIMIZED_CHATS':
+      return { ...state, minimizedChats: action.payload };
+    
+    case 'ADD_MINIMIZED_CHAT':
+      return {
+        ...state,
+        minimizedChats: state.minimizedChats.some(chat => chat.visitor_id === action.payload.visitor_id)
+          ? state.minimizedChats
+          : [...state.minimizedChats, action.payload]
+      };
+    
+    case 'REMOVE_MINIMIZED_CHAT':
+      return {
+        ...state,
+        minimizedChats: state.minimizedChats.filter(chat => chat.visitor_id !== action.payload)
+      };
+    
+    case 'UPDATE_VISITOR_CHAT_STATE': {
+      const newMap = new Map(state.visitorChatStates);
+      const currentState = newMap.get(action.payload.visitorId) || createDefaultChatState();
+      newMap.set(action.payload.visitorId, { ...currentState, ...action.payload.updates });
+      return { ...state, visitorChatStates: newMap };
+    }
+    
+    case 'REMOVE_VISITOR_CHAT_STATE': {
+      const newMap = new Map(state.visitorChatStates);
+      const chatState = newMap.get(action.payload);
+      
+      // Clean up WebSocket and timeout
+      if (chatState?.wsConnection) {
+        chatState.wsConnection.close(1000, 'Chat state removed');
+      }
+      if (chatState?.connectionTimeout) {
+        clearTimeout(chatState.connectionTimeout);
+      }
+      
+      newMap.delete(action.payload);
+      return { ...state, visitorChatStates: newMap };
+    }
+    
+    case 'ADD_MESSAGE': {
+      const newMap = new Map(state.visitorChatStates);
+      const currentState = newMap.get(action.payload.visitorId) || createDefaultChatState();
+      const updatedMessages = [...currentState.chatMessages, action.payload.message];
+      newMap.set(action.payload.visitorId, { 
+        ...currentState, 
+        chatMessages: updatedMessages,
+        lastActivity: Date.now()
+      });
+      return { ...state, visitorChatStates: newMap };
+    }
+    
+    case 'UPDATE_MESSAGE_STATUS': {
+      const newMap = new Map(state.visitorChatStates);
+      const currentState = newMap.get(action.payload.visitorId);
+      if (currentState) {
+        const updatedMessages = currentState.chatMessages.map(msg => 
+          msg.id === action.payload.messageId 
+            ? { ...msg, seen_status: action.payload.status }
+            : msg
+        );
+        newMap.set(action.payload.visitorId, { ...currentState, chatMessages: updatedMessages });
+      }
+      return { ...state, visitorChatStates: newMap };
+    }
+    
+    case 'SET_TYPING': {
+      const newMap = new Map(state.visitorChatStates);
+      const currentState = newMap.get(action.payload.visitorId) || createDefaultChatState();
+      newMap.set(action.payload.visitorId, { ...currentState, isTyping: action.payload.isTyping });
+      return { ...state, visitorChatStates: newMap };
+    }
+    
+    default:
+      return state;
+  }
+}
+
 const GlobalChatContext = createContext<GlobalChatContextType | undefined>(undefined);
 
 export const useGlobalChat = () => {
@@ -89,460 +252,538 @@ export const useGlobalChat = () => {
   return context;
 };
 
-interface GlobalChatProviderProps {
-  children: ReactNode;
-}
+// WebSocket Connection Manager Class
+class WebSocketManager {
+  private connections = new Map<string, WebSocket>();
+  private reconnectTimeouts = new Map<string, NodeJS.Timeout>();
+  private maxReconnectAttempts = 3;
+  private reconnectDelay = 1000;
 
-interface VisitorChatState {
-  chatMessages: ChatMessage[];
-  isConnected: boolean;
-  isConnecting: boolean;
-  isTyping: boolean;
-  isLoadingHistory: boolean;
-  wsConnection: WebSocket | null;
-}
+  connect(
+    visitorId: string, 
+    sessionId: string, 
+    agentId: string, 
+    onMessage: (data: any) => void,
+    onOpen: () => void,
+    onClose: () => void,
+    onError: (error: Event) => void
+  ): WebSocket | null {
+    // Close existing connection if any
+    this.disconnect(visitorId);
 
-export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children }) => {
-  const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [showEndChatDialog, setShowEndChatDialog] = useState(false);
-  const [minimizedChats, setMinimizedChats] = useState<Visitor[]>([]);
-  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string } | null>(null);
-  const [isSwitchingVisitor, setIsSwitchingVisitor] = useState(false);
-  const [isEndingChat, setIsEndingChat] = useState(false);
-  
-  // Store chat state per visitor
-  const [visitorChatStates, setVisitorChatStates] = useState<Map<string, VisitorChatState>>(new Map());
-  
-  // Get current visitor's chat state
-  const getCurrentChatState = useCallback((): VisitorChatState => {
-    if (!selectedVisitor) {
-            return {
-              chatMessages: [],
-              isConnected: false,
-              isConnecting: false,
-              isTyping: false,
-              isLoadingHistory: false,
-              wsConnection: null
-            };
-    }
+    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/chat/${sessionId}/agent/${agentId}`;
     
-    const state = visitorChatStates.get(selectedVisitor.visitor_id);
-    if (!state) {
-      const defaultState: VisitorChatState = {
-        chatMessages: [],
-        isConnected: false,
-        isConnecting: false,
-        isTyping: false,
-        isLoadingHistory: false,
-        wsConnection: null
-      };
-      setVisitorChatStates(prev => new Map(prev).set(selectedVisitor.visitor_id, defaultState));
-      return defaultState;
-    }
-    return state;
-  }, [selectedVisitor, visitorChatStates]);
-  
-  // Update current visitor's chat state
-  const updateCurrentChatState = useCallback((updates: Partial<VisitorChatState>) => {
-    if (!selectedVisitor) return;
-    
-    setVisitorChatStates(prev => {
-      const newMap = new Map(prev);
-        const currentState = newMap.get(selectedVisitor.visitor_id) || {
-          chatMessages: [],
-          isConnected: false,
-          isConnecting: false,
-          isTyping: false,
-          isLoadingHistory: false,
-          wsConnection: null
-        };
-      newMap.set(selectedVisitor.visitor_id, { ...currentState, ...updates });
-      return newMap;
-    });
-  }, [selectedVisitor]);
-
-  const fetchChatHistory = useCallback(async (sessionId: string, visitor: Visitor) => {
     try {
-      // Set loading state
-      setVisitorChatStates(prev => {
-        const newMap = new Map(prev);
-        const currentState = newMap.get(visitor.visitor_id) || {
-          chatMessages: [],
-          isConnected: false,
-          isConnecting: false,
-          isTyping: false,
-          isLoadingHistory: false,
-          wsConnection: null
-        };
-        newMap.set(visitor.visitor_id, { ...currentState, isLoadingHistory: true, chatMessages: [] });
-        return newMap;
+      const ws = new WebSocket(wsUrl);
+      this.connections.set(visitorId, ws);
+
+      ws.onopen = onOpen;
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          onMessage(data);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      };
+      ws.onerror = onError;
+      ws.onclose = (event) => {
+        this.connections.delete(visitorId);
+        onClose();
+        
+        // Auto-reconnect logic for unexpected closes
+        if (event.code !== 1000 && event.code !== 1001) {
+          this.scheduleReconnect(visitorId, sessionId, agentId, onMessage, onOpen, onClose, onError);
+        }
+      };
+
+      return ws;
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      onError(error as Event);
+      return null;
+    }
+  }
+
+  disconnect(visitorId: string): void {
+    const ws = this.connections.get(visitorId);
+    if (ws && ws.readyState !== WebSocket.CLOSED) {
+      ws.close(1000, 'Disconnect requested');
+    }
+    this.connections.delete(visitorId);
+
+    // Clear reconnect timeout
+    const timeout = this.reconnectTimeouts.get(visitorId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.reconnectTimeouts.delete(visitorId);
+    }
+  }
+
+  send(visitorId: string, message: any): boolean {
+    const ws = this.connections.get(visitorId);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  }
+
+  private scheduleReconnect(
+    visitorId: string, 
+    sessionId: string, 
+    agentId: string,
+    onMessage: (data: any) => void,
+    onOpen: () => void,
+    onClose: () => void,
+    onError: (error: Event) => void
+  ): void {
+    const timeout = setTimeout(() => {
+      this.connect(visitorId, sessionId, agentId, onMessage, onOpen, onClose, onError);
+    }, this.reconnectDelay);
+    
+    this.reconnectTimeouts.set(visitorId, timeout);
+  }
+
+  disconnectAll(): void {
+    for (const [visitorId] of this.connections) {
+      this.disconnect(visitorId);
+    }
+  }
+
+  getConnection(visitorId: string): WebSocket | undefined {
+    return this.connections.get(visitorId);
+  }
+}
+
+export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [state, dispatch] = useReducer(chatReducer, initialState);
+  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string } | null>(null);
+  
+  // Use refs to avoid stale closures
+  const currentAgentRef = useRef(currentAgent);
+  const stateRef = useRef(state);
+  
+  // WebSocket manager instance
+  const wsManagerRef = useRef(new WebSocketManager());
+  
+  // Update refs when state changes
+  useEffect(() => {
+    currentAgentRef.current = currentAgent;
+  }, [currentAgent]);
+  
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  // API call manager with abort controllers
+  const activeRequestsRef = useRef(new Map<string, AbortController>());
+
+  // Helper function to get current visitor chat state
+  const getCurrentChatState = useCallback((): VisitorChatState => {
+    if (!state.selectedVisitor) {
+      return createDefaultChatState();
+    }
+    return state.visitorChatStates.get(state.selectedVisitor.visitor_id) || createDefaultChatState();
+  }, [state.selectedVisitor, state.visitorChatStates]);
+
+  // Update visitor last message helper
+  const updateVisitorLastMessage = useCallback((
+    visitorId: string, 
+    lastMessage: { content: string; sender_type: string; timestamp: string }
+  ) => {
+    globalEventEmitter.emit(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, { visitorId, lastMessage });
+  }, []);
+
+  // Fetch chat history with abort controller
+  const fetchChatHistory = useCallback(async (sessionId: string, visitor: Visitor) => {
+    // Cancel any existing request for this visitor
+    const existingController = activeRequestsRef.current.get(visitor.visitor_id);
+    if (existingController) {
+      existingController.abort();
+    }
+
+    const controller = new AbortController();
+    activeRequestsRef.current.set(visitor.visitor_id, controller);
+
+    try {
+      dispatch({
+        type: 'UPDATE_VISITOR_CHAT_STATE',
+        payload: {
+          visitorId: visitor.visitor_id,
+          updates: { isLoadingHistory: true, chatMessages: [] }
+        }
       });
-      
-      // Add cache-busting parameter to ensure fresh data
-      const response = await api.get(`/chat/conversation/${sessionId}`);
-      
-      if (response.data && response.data.data && response.data.data.messages) {
-        const formattedMessages = response.data.data.messages.map((msg: any) => ({
+
+      const response = await api.get(`/chat/conversation/${sessionId}`, {
+        signal: controller.signal
+      });
+
+      if (response.data?.data?.messages) {
+        const formattedMessages: ChatMessage[] = response.data.data.messages.map((msg: any) => ({
           id: msg.message_id || `${Date.now()}-${Math.random()}`,
           sender: msg.sender_type === 'visitor' ? 'visitor' : 
                  (msg.sender_type === 'agent' || msg.sender_type === 'client_agent') ? 'agent' : 'system',
           sender_id: msg.sender_id,
           message: msg.message,
           timestamp: msg.timestamp || new Date().toISOString(),
-          status: msg.status || undefined
+          seen_status: msg.seen_status || 'delivered'
         }));
         
-         // Update the visitor's chat state directly
-         setVisitorChatStates(prev => {
-           const newMap = new Map(prev);
-           const currentState = newMap.get(visitor.visitor_id) || {
-             chatMessages: [],
-             isConnected: false,
-             isConnecting: false,
-             isTyping: false,
-             isLoadingHistory: false,
-             wsConnection: null
-           };
-           newMap.set(visitor.visitor_id, { ...currentState, chatMessages: formattedMessages, isLoadingHistory: false });
-           return newMap;
-         });
+        dispatch({
+          type: 'UPDATE_VISITOR_CHAT_STATE',
+          payload: {
+            visitorId: visitor.visitor_id,
+            updates: { chatMessages: formattedMessages, isLoadingHistory: false }
+          }
+        });
 
-        // Update last message after loading history
+        // Update last message
         if (formattedMessages.length > 0) {
           const lastMessage = formattedMessages[formattedMessages.length - 1];
           updateVisitorLastMessage(visitor.visitor_id, {
-            content: lastMessage.message.length > 100 ? lastMessage.message.substring(0, 100) + "..." : lastMessage.message,
+            content: lastMessage.message.length > 100 
+              ? lastMessage.message.substring(0, 100) + "..." 
+              : lastMessage.message,
             sender_type: lastMessage.sender,
             timestamp: lastMessage.timestamp
           });
         }
       }
     } catch (error: any) {
-      // Handle 404 errors gracefully (session doesn't exist)
-      if (error?.response?.status === 404) {
-        // Session doesn't exist - this is normal for new visitors
-        // Just clear loading state and continue
-      } else {
-        // Log other errors but don't throw
+      if (error.name === 'AbortError') {
+        return; // Request was cancelled, ignore
+      }
+      
+      if (error?.response?.status !== 404) {
         console.warn('Failed to fetch chat history:', error);
       }
       
-      // Clear loading state on error
-      setVisitorChatStates(prev => {
-        const newMap = new Map(prev);
-        const currentState = newMap.get(visitor.visitor_id);
-        if (currentState) {
-          newMap.set(visitor.visitor_id, { ...currentState, isLoadingHistory: false });
+      dispatch({
+        type: 'UPDATE_VISITOR_CHAT_STATE',
+        payload: {
+          visitorId: visitor.visitor_id,
+          updates: { isLoadingHistory: false }
         }
-        return newMap;
       });
+    } finally {
+      activeRequestsRef.current.delete(visitor.visitor_id);
     }
-  }, []);
+  }, [updateVisitorLastMessage]);
 
-  const connectChatWebSocket = useCallback(() => {
-    if (!selectedVisitor?.session_id || !currentAgent?.id) {
+  // WebSocket event handlers
+  const createWebSocketHandlers = useCallback((visitor: Visitor) => {
+    const onMessage = (data: any) => {
+      if (data.type === 'chat_message') {
+        const newMessage: ChatMessage = {
+          id: data.message_id || `${Date.now()}-${Math.random()}`,
+          sender: data.sender_type === 'visitor' ? 'visitor' : 
+                 (data.sender_type === 'agent' || data.sender_type === 'client_agent') ? 'agent' : 'system',
+          sender_id: data.sender_id,
+          message: data.message,
+          timestamp: data.timestamp || new Date().toISOString(),
+          seen_status: 'delivered'
+        };
+
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: { visitorId: visitor.visitor_id, message: newMessage }
+        });
+
+        updateVisitorLastMessage(visitor.visitor_id, {
+          content: newMessage.message.length > 100 
+            ? newMessage.message.substring(0, 100) + "..." 
+            : newMessage.message,
+          sender_type: newMessage.sender,
+          timestamp: newMessage.timestamp
+        });
+
+        // Auto-mark visitor messages as seen
+        if (data.sender_type === 'visitor') {
+          setTimeout(() => {
+            sendMessageSeen(newMessage.id);
+          }, 100);
+        }
+      } else if (data.type === 'typing_indicator') {
+        dispatch({
+          type: 'SET_TYPING',
+          payload: {
+            visitorId: visitor.visitor_id,
+            isTyping: Boolean(data.is_typing && data.sender_type === 'visitor')
+          }
+        });
+      } else if (data.type === 'message_seen') {
+        dispatch({
+          type: 'UPDATE_MESSAGE_STATUS',
+          payload: {
+            visitorId: visitor.visitor_id,
+            messageId: data.message_id,
+            status: 'read'
+          }
+        });
+      }
+    };
+
+    const onOpen = () => {
+      dispatch({
+        type: 'UPDATE_VISITOR_CHAT_STATE',
+        payload: {
+          visitorId: visitor.visitor_id,
+          updates: { isConnected: true, isConnecting: false }
+        }
+      });
+    };
+
+    const onClose = () => {
+      dispatch({
+        type: 'UPDATE_VISITOR_CHAT_STATE',
+        payload: {
+          visitorId: visitor.visitor_id,
+          updates: { isConnected: false, isConnecting: false, wsConnection: null }
+        }
+      });
+    };
+
+    const onError = (error: Event) => {
+      console.error('WebSocket error:', error);
+      dispatch({
+        type: 'UPDATE_VISITOR_CHAT_STATE',
+        payload: {
+          visitorId: visitor.visitor_id,
+          updates: { isConnected: false, isConnecting: false, wsConnection: null }
+        }
+      });
+    };
+
+    return { onMessage, onOpen, onClose, onError };
+  }, [updateVisitorLastMessage]);
+
+  // Connect WebSocket for visitor
+  const connectWebSocket = useCallback((visitor: Visitor) => {
+    if (!visitor.session_id || !currentAgent?.id || visitor.agent_id !== currentAgent.id) {
       return;
     }
-    
-    const currentState = getCurrentChatState();
-    
-    // Prevent multiple connection attempts
-    if (currentState.isConnecting || 
-        (currentState.wsConnection && currentState.wsConnection.readyState === WebSocket.OPEN) ||
-        (currentState.wsConnection && currentState.wsConnection.readyState === WebSocket.CONNECTING)) {
+
+    const chatState = state.visitorChatStates.get(visitor.visitor_id);
+    if (chatState?.isConnecting || chatState?.isConnected) {
       return;
     }
-    
-    // Close any existing connection before creating a new one
-    if (currentState.wsConnection) {
-      currentState.wsConnection.close(1000, 'Reconnecting');
-    }
-    
-    updateCurrentChatState({ isConnecting: true, isConnected: false });
-    
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/chat/${selectedVisitor.session_id}/agent/${currentAgent.id}`;
-    
-    try {
-      const ws = new WebSocket(wsUrl);
-      updateCurrentChatState({ wsConnection: ws });
 
+    dispatch({
+      type: 'UPDATE_VISITOR_CHAT_STATE',
+      payload: {
+        visitorId: visitor.visitor_id,
+        updates: { isConnecting: true }
+      }
+    });
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'chat_message') {
-            const newMessage: ChatMessage = {
-              id: data.message_id || `${Date.now()}-${Math.random()}`,
-              sender: data.sender_type === 'visitor' ? 'visitor' : 
-                     (data.sender_type === 'agent' || data.sender_type === 'client_agent') ? 'agent' : 'system',
-              sender_id: data.sender_id,
-              message: data.message,
-              timestamp: data.timestamp || new Date().toISOString(),
-              status: 'delivered' // Mark as delivered when received
-            };
-            
-            // Use functional state update to avoid stale closure issues
-            setVisitorChatStates(prev => {
-              const newMap = new Map(prev);
-              const currentState = newMap.get(selectedVisitor!.visitor_id);
-              if (currentState) {
-                const updatedMessages = [...currentState.chatMessages, newMessage];
-                newMap.set(selectedVisitor!.visitor_id, {
-                  ...currentState,
-                  chatMessages: updatedMessages
-                });
-              }
-              return newMap;
-            });
-            
-            // Update last message in visitor list
-            updateVisitorLastMessage(selectedVisitor!.visitor_id, {
-              content: newMessage.message.length > 100 ? newMessage.message.substring(0, 100) + "..." : newMessage.message,
-              sender_type: newMessage.sender,
-              timestamp: newMessage.timestamp
-            });
-            
-            // If it's a visitor message, send message_seen notification
-            if (data.sender_type === 'visitor') {
-              setTimeout(() => {
-                sendMessageSeen(newMessage.id);
-              }, 100); // Small delay to ensure state is updated
-            }
-          } else if (data.type === 'typing_indicator') {
-            setVisitorChatStates(prev => {
-              const newMap = new Map(prev);
-              const currentState = newMap.get(selectedVisitor!.visitor_id);
-              if (currentState) {
-                newMap.set(selectedVisitor!.visitor_id, {
-                  ...currentState,
-                  isTyping: Boolean(data.is_typing && data.sender_type === 'visitor')
-                });
-              }
-              return newMap;
-            });
-          } else if (data.type === 'message_seen') {
-            if (data.sender_type === 'visitor') {
-              // Visitor has seen agent's message - update the specific message
-              setVisitorChatStates(prev => {
-                const newMap = new Map(prev);
-                const currentState = newMap.get(selectedVisitor!.visitor_id);
-                if (currentState) {
-                  const updatedMessages = currentState.chatMessages.map(msg => 
-                    msg.sender === 'agent' && msg.id === data.message_id 
-                      ? { ...msg, status: 'read' as const }
-                      : msg
-                  );
-                  newMap.set(selectedVisitor!.visitor_id, {
-                    ...currentState,
-                    chatMessages: updatedMessages
-                  });
-                }
-                return newMap;
-              });
-            } else if (data.sender_type === 'agent' || data.sender_type === 'client_agent') {
-              // Agent has seen visitor's message - update the specific message
-              setVisitorChatStates(prev => {
-                const newMap = new Map(prev);
-                const currentState = newMap.get(selectedVisitor!.visitor_id);
-                if (currentState) {
-                  const updatedMessages = currentState.chatMessages.map(msg => 
-                    msg.sender === 'visitor' && msg.id === data.message_id 
-                      ? { ...msg, status: 'read' as const }
-                      : msg
-                  );
-                  newMap.set(selectedVisitor!.visitor_id, {
-                    ...currentState,
-                    chatMessages: updatedMessages
-                  });
-                }
-                return newMap;
-              });
-            }
-          }
-        } catch (error) {
+    const handlers = createWebSocketHandlers(visitor);
+    const ws = wsManagerRef.current.connect(
+      visitor.visitor_id,
+      visitor.session_id,
+      currentAgent.id,
+      handlers.onMessage,
+      handlers.onOpen,
+      handlers.onClose,
+      handlers.onError
+    );
+
+    if (ws) {
+      dispatch({
+        type: 'UPDATE_VISITOR_CHAT_STATE',
+        payload: {
+          visitorId: visitor.visitor_id,
+          updates: { wsConnection: ws }
         }
-      };
-
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setVisitorChatStates(prev => {
-          const newMap = new Map(prev);
-          const currentState = newMap.get(selectedVisitor!.visitor_id);
-          if (currentState) {
-            newMap.set(selectedVisitor!.visitor_id, {
-              ...currentState,
-              isConnected: false,
-              isConnecting: false,
-              wsConnection: null
-            });
-          }
-          return newMap;
-        });
-      };
-
-      // Add connection timeout
-      const connectionTimeout = setTimeout(() => {
-        if (ws.readyState === WebSocket.CONNECTING) {
-          ws.close(1000, 'Connection timeout');
-        }
-      }, 10000); // 10 second timeout
-
-      ws.onopen = () => {
-        clearTimeout(connectionTimeout);
-        updateCurrentChatState({ isConnected: true, isConnecting: false });
-      };
-
-      ws.onclose = (event) => {
-        clearTimeout(connectionTimeout);
-        setVisitorChatStates(prev => {
-          const newMap = new Map(prev);
-          const currentState = newMap.get(selectedVisitor!.visitor_id);
-          if (currentState) {
-            newMap.set(selectedVisitor!.visitor_id, {
-              ...currentState,
-              isConnected: false,
-              isConnecting: false,
-              wsConnection: null
-            });
-          }
-          return newMap;
-        });
-        
-        // DON'T remove from minimized chats when session disconnects - keep them until agent deliberately ends chat
-        
-        // If this is the currently selected visitor and chat is open, close it
-        if (selectedVisitor && isChatOpen) {
-          setIsChatOpen(false);
-          setSelectedVisitor(null);
-          setShowEndChatDialog(false);
-        }
-      };
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-      setVisitorChatStates(prev => {
-        const newMap = new Map(prev);
-        const currentState = newMap.get(selectedVisitor!.visitor_id);
-        if (currentState) {
-          newMap.set(selectedVisitor!.visitor_id, {
-            ...currentState,
-            isConnected: false,
-            isConnecting: false,
-            wsConnection: null
-          });
-        }
-        return newMap;
       });
     }
-  }, [selectedVisitor?.session_id, currentAgent?.id, getCurrentChatState, updateCurrentChatState]);
+  }, [currentAgent, state.visitorChatStates, createWebSocketHandlers]);
 
+  // Chat actions
   const openChat = useCallback(async (visitor: Visitor) => {
-    // If there's a currently open chat and we're opening a different visitor,
-    // automatically minimize the current chat
-    if (selectedVisitor && selectedVisitor.visitor_id !== visitor.visitor_id && isChatOpen) {
-      // Always add to minimized chats when switching to a different visitor
-      setMinimizedChats(prev => {
-        const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
-        if (!exists) {
-          return [...prev, selectedVisitor];
-        }
-        return prev;
-      });
+    // Handle minimizing current chat if switching visitors
+    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== visitor.visitor_id && state.isChatOpen) {
+      dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: state.selectedVisitor });
     }
-    
-    // Show switching animation if we're switching to a different visitor
-    if (selectedVisitor && selectedVisitor.visitor_id !== visitor.visitor_id) {
-      setIsSwitchingVisitor(true);
-      // Small delay to show the switching animation
+
+    // Handle switching animation
+    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== visitor.visitor_id) {
+      dispatch({ type: 'SET_SWITCHING_VISITOR', payload: true });
       await new Promise(resolve => setTimeout(resolve, 150));
     }
-    
-    setSelectedVisitor(visitor);
-    setIsChatOpen(true);
-    setShowEndChatDialog(false);
-    setIsSwitchingVisitor(false);
-    
-    // DON'T remove from minimized chats - keep it there but mark as active
-    
-    // Ensure agent is set if visitor has agent_id
+
+    // Add visitor to minimized chats if it's not already there and belongs to current agent
+    if (visitor.agent_id && currentAgent?.id && visitor.agent_id === currentAgent.id) {
+      const exists = state.minimizedChats.some(chat => chat.visitor_id === visitor.visitor_id);
+      if (!exists) {
+        dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: visitor });
+      }
+    }
+
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: visitor });
+    dispatch({ type: 'SET_CHAT_OPEN', payload: true });
+    dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+    dispatch({ type: 'SET_SWITCHING_VISITOR', payload: false });
+
+    // Set agent if needed
     if (visitor.agent_id && visitor.agent_name && !currentAgent) {
       setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
     }
-    
-    
-    // Always fetch fresh chat history if session_id exists and is valid
-    // Don't await this - let it run in background so chat dialog opens immediately
-    if (visitor.session_id && visitor.session_id.trim() !== '') {
-      fetchChatHistory(visitor.session_id, visitor).catch(error => {
-        // This is already handled in fetchChatHistory
-      });
-    }
-  }, [currentAgent, fetchChatHistory, selectedVisitor]);
 
-  // Connect WebSocket when visitor and agent are available (only if visitor belongs to current agent)
-  useEffect(() => {
-    if (!selectedVisitor?.session_id || !currentAgent?.id || !isChatOpen) {
-      return;
+    // Fetch history and connect WebSocket
+    if (visitor.session_id?.trim()) {
+      fetchChatHistory(visitor.session_id, visitor);
+    }
+  }, [state.selectedVisitor, state.isChatOpen, state.minimizedChats, currentAgent, fetchChatHistory]);
+
+  const closeChat = useCallback(() => {
+    if (state.selectedVisitor) {
+      wsManagerRef.current.disconnect(state.selectedVisitor.visitor_id);
+    }
+    
+    dispatch({ type: 'SET_CHAT_OPEN', payload: false });
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+    dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+  }, [state.selectedVisitor]);
+
+  const minimizeChat = useCallback(() => {
+    if (!state.selectedVisitor) return;
+
+    if (state.selectedVisitor.agent_id === currentAgent?.id) {
+      dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: state.selectedVisitor });
+    }
+    
+    dispatch({ type: 'SET_CHAT_OPEN', payload: false });
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+    dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+  }, [state.selectedVisitor, currentAgent]);
+
+  const maximizeChat = useCallback((visitorId: string) => {
+    const visitor = state.minimizedChats.find(chat => chat.visitor_id === visitorId);
+    if (!visitor) return;
+
+    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== visitorId && state.isChatOpen) {
+      dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: state.selectedVisitor });
     }
 
-    // Only connect WebSocket if the selected visitor belongs to the current agent
-    if (selectedVisitor.agent_id && selectedVisitor.agent_id === currentAgent.id) {
-      const currentState = getCurrentChatState();
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: visitor });
+    dispatch({ type: 'SET_CHAT_OPEN', payload: true });
+    dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+
+      if (visitor.agent_id && visitor.agent_name && !currentAgent) {
+        setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
+      }
+  }, [state.minimizedChats, state.selectedVisitor, state.isChatOpen, currentAgent]);
+
+  const closeMinimizedChat = useCallback((visitorId: string) => {
+    const visitor = state.minimizedChats.find(chat => chat.visitor_id === visitorId);
+    if (!visitor) return;
+
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: visitor });
+    dispatch({ type: 'SET_CHAT_OPEN', payload: true });
+    dispatch({ type: 'SET_END_CHAT_DIALOG', payload: true });
+  }, [state.minimizedChats]);
+
+  const handleEndChat = useCallback(() => {
+    if (!state.selectedVisitor || !currentAgent?.id) return;
+
+    dispatch({ type: 'SET_ENDING_CHAT', payload: true });
+
+    const success = wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
+        type: 'close_session',
+        reason: 'agent_ended_chat',
+        timestamp: new Date().toISOString()
+    });
+
+    const cleanup = () => {
+      if (state.selectedVisitor) {
+        dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: state.selectedVisitor.visitor_id });
+        dispatch({ type: 'REMOVE_MINIMIZED_CHAT', payload: state.selectedVisitor.visitor_id });
+        
+        globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
+          visitor_id: state.selectedVisitor.visitor_id,
+          session_id: state.selectedVisitor.session_id,
+          reason: 'agent_ended_chat',
+          timestamp: new Date().toISOString()
+        });
+      }
       
-      // Only connect if not already connected or connecting
-      if (!currentState.isConnecting && (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN)) {
-        connectChatWebSocket();
-      }
+      dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+      dispatch({ type: 'SET_CHAT_OPEN', payload: false });
+      dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+      dispatch({ type: 'SET_ENDING_CHAT', payload: false });
+    };
+
+    if (success) {
+      setTimeout(cleanup, 1000);
     } else {
-      // If visitor doesn't belong to current agent, disconnect
-      const currentState = getCurrentChatState();
-      if (currentState.wsConnection) {
-        currentState.wsConnection.close(1000, 'Visitor not assigned to current agent');
-      }
-      updateCurrentChatState({
-        isConnected: false,
-        isConnecting: false,
-        wsConnection: null
-      });
+      cleanup();
     }
+  }, [state.selectedVisitor, currentAgent]);
 
-    // Cleanup function to close WebSocket when dependencies change
-    return () => {
-      const currentState = getCurrentChatState();
-      if (currentState.wsConnection && currentState.wsConnection.readyState === WebSocket.OPEN) {
-        currentState.wsConnection.close(1000, 'Switching visitor or closing chat');
-      }
-    };
-  }, [selectedVisitor?.visitor_id, selectedVisitor?.session_id, selectedVisitor?.agent_id, currentAgent?.id, isChatOpen]);
+  // Message actions
+  const sendChatMessage = useCallback((message: string) => {
+    if (!message.trim() || !state.selectedVisitor) return;
+    
+    if (state.selectedVisitor.agent_id !== currentAgent?.id) return;
+    
+    wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
+      type: 'chat_message',
+      message: message.trim(),
+      timestamp: new Date().toISOString()
+    });
+  }, [state.selectedVisitor, currentAgent]);
 
-  // Cleanup all WebSocket connections when component unmounts
+  const sendTypingIndicator = useCallback((isTyping: boolean) => {
+    if (!state.selectedVisitor || state.selectedVisitor.agent_id !== currentAgent?.id) return;
+    
+    wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
+      type: 'typing_indicator',
+      is_typing: isTyping,
+      sender_type: 'agent',
+      timestamp: new Date().toISOString()
+    });
+  }, [state.selectedVisitor, currentAgent]);
+
+  const sendMessageSeen = useCallback((messageId: string) => {
+    if (!state.selectedVisitor || !currentAgent?.id) return;
+    
+    wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
+      type: 'message_seen',
+      message_id: messageId,
+      sender_type: 'agent',
+      timestamp: new Date().toISOString()
+    });
+  }, [state.selectedVisitor, currentAgent]);
+
+  // Handle close with dialog
+  const handleCloseWithDialog = useCallback(() => {
+    if (state.selectedVisitor?.agent_id === currentAgent?.id && state.selectedVisitor?.status === 'active') {
+      dispatch({ type: 'SET_END_CHAT_DIALOG', payload: true });
+    } else {
+      closeChat();
+    }
+  }, [state.selectedVisitor, currentAgent, closeChat]);
+
+  // Connect WebSocket when visitor/agent changes
   useEffect(() => {
-    return () => {
-      // Close all WebSocket connections
-      visitorChatStates.forEach((state) => {
-        if (state.wsConnection && state.wsConnection.readyState === WebSocket.OPEN) {
-          state.wsConnection.close(1000, 'Component unmounting');
-        }
-      });
-    };
-  }, []);
+    if (state.selectedVisitor && state.isChatOpen) {
+      connectWebSocket(state.selectedVisitor);
+    }
+  }, [state.selectedVisitor?.visitor_id, state.isChatOpen, currentAgent?.id, connectWebSocket]);
 
-  // Listen for visitor_assigned events to remove chats from minimized when taken by another agent
+  // Event listeners
   useEffect(() => {
     const handleVisitorTaken = (eventData: any) => {
       const { visitor_id, assigned_agent_id } = eventData;
       
-      // Only remove from minimized chats if assigned to a different agent
       if (currentAgent?.id && assigned_agent_id !== currentAgent.id) {
-        setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== visitor_id));
+        dispatch({ type: 'REMOVE_MINIMIZED_CHAT', payload: visitor_id });
         
-        // Also close the chat if it's currently open and belongs to this visitor
-        if (selectedVisitor?.visitor_id === visitor_id && isChatOpen) {
-          setIsChatOpen(false);
-          setSelectedVisitor(null);
-          setShowEndChatDialog(false);
+        if (state.selectedVisitor?.visitor_id === visitor_id && state.isChatOpen) {
+          dispatch({ type: 'SET_CHAT_OPEN', payload: false });
+          dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+          dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
         }
       }
     };
@@ -552,244 +793,111 @@ export const GlobalChatProvider: React.FC<GlobalChatProviderProps> = ({ children
     return () => {
       globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
     };
-  }, [currentAgent, selectedVisitor, isChatOpen]);
+  }, [currentAgent, state.selectedVisitor, state.isChatOpen]);
 
-  const closeChat = useCallback(() => {
-    // Close WebSocket connection for current visitor
-    const currentState = getCurrentChatState();
-    if (currentState.wsConnection) {
-      currentState.wsConnection.close(1000, 'Component unmounting');
-    }
-    
-    setIsChatOpen(false);
-    setSelectedVisitor(null);
-    setShowEndChatDialog(false);
-  }, [getCurrentChatState]);
-
-  const minimizeChat = useCallback(() => {
-    if (!selectedVisitor) return;
-    
-    // Only allow minimizing if the chat belongs to the current agent
-    if (selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id) {
-      // Always add to minimized chats when minimizing - ensure we add the current visitor
-      setMinimizedChats(prev => {
-        // Remove any existing entry for this visitor first to avoid duplicates
-        const filtered = prev.filter(chat => chat.visitor_id !== selectedVisitor.visitor_id);
-        // Add the current visitor
-        return [...filtered, selectedVisitor];
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cancel all active requests
+      activeRequestsRef.current.forEach(controller => {
+        controller.abort();
       });
-      // Close the chat dialog only if agent can minimize
-      setIsChatOpen(false);
-      setSelectedVisitor(null);
-      setShowEndChatDialog(false);
-    } else {
-      // If not the assigned agent, just close the dialog (don't minimize)
-      setIsChatOpen(false);
-      setSelectedVisitor(null);
-      setShowEndChatDialog(false);
-    }
-  }, [selectedVisitor, currentAgent, minimizedChats]);
-
-  const maximizeChat = useCallback((visitorId: string) => {
-    const visitor = minimizedChats.find(chat => chat.visitor_id === visitorId);
-    if (visitor) {
-      // If there's a currently open chat, minimize it first
-      if (selectedVisitor && selectedVisitor.visitor_id !== visitorId && isChatOpen) {
-        setMinimizedChats(prev => {
-          const exists = prev.some(chat => chat.visitor_id === selectedVisitor.visitor_id);
-          if (!exists) {
-            return [...prev, selectedVisitor];
-          }
-          return prev;
-        });
-      }
+      activeRequestsRef.current.clear();
       
-      // DON'T remove from minimized chats - keep it there but mark as active
-      setSelectedVisitor(visitor);
-      setIsChatOpen(true);
-      setShowEndChatDialog(false);
-      // Ensure agent is set if visitor has agent_id
-      if (visitor.agent_id && visitor.agent_name && !currentAgent) {
-        setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
-      }
-    }
-  }, [minimizedChats, currentAgent, selectedVisitor, isChatOpen]);
-
-  const closeMinimizedChat = useCallback((visitorId: string) => {
-    // Find the visitor from minimized chats
-    const visitor = minimizedChats.find(chat => chat.visitor_id === visitorId);
-    if (visitor) {
-      // Open the chat dialog with this visitor
-      setSelectedVisitor(visitor);
-      setIsChatOpen(true);
-      // Show the end chat dialog immediately
-      setShowEndChatDialog(true);
-      // DON'T remove from minimized chats - let handleEndChat do it when chat is actually ended
-    }
-  }, [minimizedChats]);
-
-  const handleEndChat = useCallback(() => {
-    if (!selectedVisitor || !currentAgent?.id) return;
-    
-    // Set loading state
-    setIsEndingChat(true);
-    
-    // Send WebSocket close_session message directly
-    const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/chat/${selectedVisitor.session_id}/agent/${currentAgent.id}`;
-    const ws = new WebSocket(wsUrl);
-    
-    ws.onopen = () => {
-      const closeMessage = {
-        type: 'close_session',
-        reason: 'agent_ended_chat',
-        timestamp: new Date().toISOString()
-      };
-      ws.send(JSON.stringify(closeMessage));
-      ws.close();
-      
-      // Wait for backend to process the WebSocket message before updating UI
-      setTimeout(() => {
-        // Remove visitor from local map
-        setVisitorChatStates(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(selectedVisitor.visitor_id);
-          return newMap;
-        });
-        
-        // Remove from minimized chats
-        setMinimizedChats(prev => prev.filter(chat => chat.visitor_id !== selectedVisitor.visitor_id));
-        
-        // Emit global event for session closed by agent
-        globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
-          visitor_id: selectedVisitor.visitor_id,
-          session_id: selectedVisitor.session_id,
-          reason: 'agent_ended_chat',
-          timestamp: new Date().toISOString()
-        });
-        
-        setShowEndChatDialog(false);
-        setIsChatOpen(false);
-        setSelectedVisitor(null);
-        setIsEndingChat(false); // Reset loading state
-      }, 1000); // 1 second delay to allow backend processing
+      // Disconnect all WebSocket connections
+      wsManagerRef.current.disconnectAll();
     };
-    
-    ws.onerror = () => {
-      setIsEndingChat(false); // Reset loading state on error
-    };
-  }, [selectedVisitor, currentAgent]);
-
-  const updateVisitorLastMessage = useCallback((visitorId: string, lastMessage: { content: string; sender_type: string; timestamp: string }) => {
-    // Emit event to update visitor list
-    globalEventEmitter.emit(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, { visitorId, lastMessage });
   }, []);
 
+  // Periodic cleanup of inactive connections
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const inactivityThreshold = 30 * 60 * 1000; // 30 minutes
+      
+      state.visitorChatStates.forEach((chatState, visitorId) => {
+        if (now - chatState.lastActivity > inactivityThreshold) {
+          // Check if this visitor is not currently selected or minimized
+          const isSelected = state.selectedVisitor?.visitor_id === visitorId;
+          const isMinimized = state.minimizedChats.some(chat => chat.visitor_id === visitorId);
+          
+          if (!isSelected && !isMinimized) {
+            dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: visitorId });
+            wsManagerRef.current.disconnect(visitorId);
+          }
+        }
+      });
+    }, 5 * 60 * 1000); // Check every 5 minutes
 
-  const sendChatMessage = useCallback((message: string) => {
-    if (!message.trim()) return;
-    
-    // Validate that the logged-in agent can send messages to this visitor
-    if (selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id) {
-      return;
-    }
-    
-    const currentState = getCurrentChatState();
-    if (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN) return;
-    
-    const chatMessage = {
-      type: 'chat_message',
-      message: message.trim(),
-      timestamp: new Date().toISOString()
-    };
-    
-    currentState.wsConnection.send(JSON.stringify(chatMessage));
-  }, [getCurrentChatState, currentAgent, selectedVisitor]);
+    return () => clearInterval(cleanupInterval);
+  }, [state.visitorChatStates, state.selectedVisitor, state.minimizedChats]);
 
-  const sendTypingIndicator = useCallback((isTyping: boolean) => {
-    // Validate that the logged-in agent can send typing indicators to this visitor
-    if (selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id !== currentAgent.id) {
-      return;
-    }
-    
-    const currentState = getCurrentChatState();
-    if (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN) return;
-    
-    const typingMessage = {
-      type: 'typing_indicator',
-      is_typing: isTyping,
-      sender_type: 'agent',
-      timestamp: new Date().toISOString()
-    };
-    
-    currentState.wsConnection.send(JSON.stringify(typingMessage));
-  }, [getCurrentChatState]);
+  // Get current chat state for context value
+  const currentChatState = useMemo(() => getCurrentChatState(), [getCurrentChatState]);
 
-  const sendMessageSeen = useCallback((messageId: string) => {
-    const currentState = getCurrentChatState();
-    if (!currentState.wsConnection || currentState.wsConnection.readyState !== WebSocket.OPEN) return;
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue: GlobalChatContextType = useMemo(() => ({
+    // State
+    selectedVisitor: state.selectedVisitor,
+    isChatOpen: state.isChatOpen,
+    showEndChatDialog: state.showEndChatDialog,
+    isSwitchingVisitor: state.isSwitchingVisitor,
+    canSend: Boolean(
+      state.selectedVisitor?.agent_id && 
+      currentAgent?.id && 
+      state.selectedVisitor.agent_id === currentAgent.id
+    ),
+    minimizedChats: state.minimizedChats,
     
-    const seenMessage = {
-      type: 'message_seen',
-      message_id: messageId,
-      sender_type: 'agent',
-      timestamp: new Date().toISOString()
-    };
-    
-    currentState.wsConnection.send(JSON.stringify(seenMessage));
-  }, [getCurrentChatState]);
-
-  const handleCloseWithDialog = useCallback(() => {
-    if (selectedVisitor?.agent_id && selectedVisitor?.status === 'active') {
-      // Only show end chat dialog if current agent can end the chat
-      const canEndChat = selectedVisitor.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id;
-      if (canEndChat) {
-        setShowEndChatDialog(true);
-      } else {
-        // If current agent cannot end chat, just close without dialog
-        closeChat();
-      }
-    } else {
-      closeChat();
-    }
-  }, [selectedVisitor, currentAgent, closeChat]);
-
-  // Get current visitor's chat state for the context value
-  const currentChatState = getCurrentChatState();
-
-  const value: GlobalChatContextType = {
-    selectedVisitor,
-    isChatOpen,
-    showEndChatDialog,
-    isSwitchingVisitor,
-    canSend: Boolean(selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id),
-    minimizedChats,
-    setMinimizedChats,
-    isConnected: selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id 
+    // WebSocket state for current visitor
+    isConnected: state.selectedVisitor?.agent_id === currentAgent?.id 
       ? currentChatState.isConnected 
-      : true, // Show as "connected" for other agents' chats
-    isConnecting: selectedVisitor?.agent_id && currentAgent?.id && selectedVisitor.agent_id === currentAgent.id 
+      : true, // Show as connected for other agents' chats
+    isConnecting: state.selectedVisitor?.agent_id === currentAgent?.id 
       ? currentChatState.isConnecting 
-      : false, // Don't show "connecting" for other agents' chats
+      : false,
     chatMessages: currentChatState.chatMessages,
     isTyping: currentChatState.isTyping,
     isLoadingHistory: currentChatState.isLoadingHistory,
-    isEndingChat,
+    isEndingChat: state.isEndingChat,
+    
+    // Actions
     openChat,
     closeChat: handleCloseWithDialog,
     minimizeChat,
     maximizeChat,
     closeMinimizedChat,
-    setShowEndChatDialog,
+    setShowEndChatDialog: (show: boolean) => {
+      dispatch({ type: 'SET_END_CHAT_DIALOG', payload: show });
+    },
     handleEndChat,
     sendChatMessage,
     sendTypingIndicator,
     sendMessageSeen,
     currentAgent,
     setCurrentAgent,
-  };
+  }), [
+    state.selectedVisitor,
+    state.isChatOpen,
+    state.showEndChatDialog,
+    state.isSwitchingVisitor,
+    state.minimizedChats,
+    state.isEndingChat,
+    currentAgent,
+    currentChatState,
+    openChat,
+    handleCloseWithDialog,
+    minimizeChat,
+    maximizeChat,
+    closeMinimizedChat,
+    handleEndChat,
+    sendChatMessage,
+    sendTypingIndicator,
+    sendMessageSeen,
+  ]);
 
   return (
-    <GlobalChatContext.Provider value={value}>
+    <GlobalChatContext.Provider value={contextValue}>
       {children}
     </GlobalChatContext.Provider>
   );

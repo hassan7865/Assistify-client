@@ -24,6 +24,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [chatMessage, setChatMessage] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const seenMessagesRef = useRef<Set<string>>(new Set());
   const { 
     chatMessages, 
     isConnected, 
@@ -108,10 +109,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (isConnected && chatMessages.length > 0) {
       // Send message_seen for visitor messages that are delivered but not read
       const unseenVisitorMessages = chatMessages
-        .filter(msg => msg.sender === 'visitor' && msg.status === 'delivered');
+        .filter(msg => 
+          msg.sender === 'visitor' && 
+          msg.seen_status === 'delivered' && 
+          !seenMessagesRef.current.has(msg.id)
+        );
       
       // Send seen notification for each delivered message
       unseenVisitorMessages.forEach(msg => {
+        seenMessagesRef.current.add(msg.id);
         sendMessageSeen(msg.id);
       });
     }
@@ -184,7 +190,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     </div>
                     {message.sender === 'agent' && (
                       <div className="flex justify-end mt-1">
-                        {message.status === 'read' ? (
+                        {message.seen_status == 'read' ? (
                           // Double checkmarks for read messages
                           <div className="flex">
                             <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
@@ -194,7 +200,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           </div>
-                        ) : message.status === 'delivered' ? (
+                        ) : message.seen_status == 'delivered' ? (
                           // Single checkmark for delivered messages
                           <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

@@ -29,25 +29,25 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
           return (
             <div
               key={chat.visitor_id}
-              className="group flex items-center bg-gray-700 hover:bg-gray-600 min-w-0 flex-shrink-0 cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden relative"
+              className={`group flex items-center min-w-0 flex-shrink-0 cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden relative ${
+                isActive 
+                  ? 'bg-gray-600 hover:bg-gray-500 border-t-2 border-gray-400' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
               onClick={() => onMaximize(chat.visitor_id)}
               style={{
                 width: '7rem',
-                height: isActive ? '2rem' : '1.75rem', // Taller for active chat
+                height: '1.75rem', // Same height for all chats
                 borderRadius: '0.375rem 0.375rem 0 0',
-                padding: isActive ? '0.25rem 0.5rem' : '0.125rem 0.5rem' // More padding for active
+                padding: '0.125rem 0.5rem', // Same padding for all chats
+                marginBottom: '0', // Ensure it sits flush with bottom
+                transform: 'translateY(0)' // Ensure no vertical offset
               }}
               onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.height = '2rem';
-                  e.currentTarget.style.padding = '0.25rem 0.5rem';
-                }
+                // No height changes on hover to maintain consistent positioning
               }}
               onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.height = '1.75rem';
-                  e.currentTarget.style.padding = '0.125rem 0.5rem';
-                }
+                // No height changes on hover to maintain consistent positioning
               }}
             >
               {/* Chat icon - always visible */}

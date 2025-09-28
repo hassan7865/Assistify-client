@@ -3,7 +3,6 @@
 import React, { createContext, useContext, ReactNode, useRef, useCallback, useEffect } from 'react';
 import api from '@/lib/axios';
 import { useGlobalChat } from '@/contexts/global-chat-context';
-import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 
 interface VisitorActionsContextType {
   takeVisitor: (visitorId: string) => void;
@@ -27,27 +26,17 @@ interface VisitorActionsProviderProps {
 export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ children }) => {
   // Use useRef to store the handler to avoid recreating functions
   const takeVisitorHandlerRef = useRef<((visitorId: string) => void) | null>(null);
-  const { openChat, setMinimizedChats } = useGlobalChat();
+  const { openChat } = useGlobalChat();
   
-  // Store pending visitor assignments to complete them when SSE event arrives
-  const pendingAssignments = useRef<Map<string, { user: any; visitorId: string; timestamp: number }>>(new Map());
   
   // Cache user data to avoid repeated API calls
   const userCache = useRef<{ user: any; timestamp: number } | null>(null);
   const USER_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   
-  // Cleanup old pending assignments to prevent memory leaks
+  // Cleanup expired user cache
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
       const now = Date.now();
-      const maxAge = 2 * 60 * 1000; // 2 minutes
-      
-      for (const [visitorId, assignment] of pendingAssignments.current.entries()) {
-        const age = now - assignment.timestamp;
-        if (age > maxAge) {
-          pendingAssignments.current.delete(visitorId);
-        }
-      }
       
       // Clean up expired user cache
       if (userCache.current && (now - userCache.current.timestamp) > USER_CACHE_DURATION) {
@@ -84,9 +73,6 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
         return;
       }
 
-      // Store the assignment BEFORE making the API call to avoid race condition
-      pendingAssignments.current.set(visitorId, { user, visitorId, timestamp: Date.now() });
-
       // Make the API call to take the visitor
       const response = await api.post('/chat/take-visitor', {
         agent_id: user.user_id,
@@ -94,59 +80,28 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
       });
 
       if (response.data.success) {
-        // The actual visitor object creation and chat opening will happen
-        // when the VISITOR_TAKEN event is received from SSE
-      } else {
-        // Remove pending assignment if API call failed
-        pendingAssignments.current.delete(visitorId);
-      }
-    } catch (error: any) {
-      // Remove pending assignment if there was an error
-      pendingAssignments.current.delete(visitorId);
-    }
-  }, [openChat, setMinimizedChats]);
-
-  // Listen for VISITOR_TAKEN events to complete pending assignments
-  useEffect(() => {
-    const handleVisitorTaken = (eventData: any) => {
-      const { visitor_id, assigned_agent_id, session_id, metadata } = eventData;
-      const pendingAssignment = pendingAssignments.current.get(visitor_id);
-      
-      if (pendingAssignment && pendingAssignment.user.user_id === assigned_agent_id) {
-        // Create visitor object with SSE data
+        // Get visitor data from the API response
+        const { session_id, metadata, started_at } = response.data.data;
+        
+        // Create visitor object with API response data
         const visitor = {
-          visitor_id: visitor_id,
-          agent_id: assigned_agent_id,
-          agent_name: pendingAssignment.user.name || pendingAssignment.user.email,
+          visitor_id: visitorId,
+          agent_id: user.user_id,
+          agent_name: user.name || user.email,
           status: "active",
-          started_at: new Date().toISOString(),
-          session_id: session_id, // From SSE event
-          metadata: metadata || {} // From SSE event
+          started_at: started_at || new Date().toISOString(),
+          session_id: session_id,
+          metadata: metadata || {}
         };
         
-        // Add to minimized chats
-        setMinimizedChats(prev => {
-          const exists = prev.some(chat => chat.visitor_id === visitor_id);
-          if (!exists) {
-            return [...prev, visitor];
-          }
-          return prev;
-        });
-        
-        // Open the chat dialog
+        // Open the chat dialog (this will handle adding to minimized chats if needed)
         openChat(visitor);
-        
-        // Remove from pending assignments
-        pendingAssignments.current.delete(visitor_id);
       }
-    };
+    } catch (error: any) {
+      console.error('Failed to take visitor:', error);
+    }
+  }, [openChat]);
 
-    globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
-    
-    return () => {
-      globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
-    };
-  }, [openChat, setMinimizedChats]);
 
   const takeVisitor = useCallback((visitorId: string) => {
     // First try the page-specific handler if available
