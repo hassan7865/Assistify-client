@@ -192,7 +192,7 @@ export default function DashboardPage() {
 
           {/* Ticket List */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto custom-scrollbar">
               <Table>
                 <TableHeader>
                   <TableRow>

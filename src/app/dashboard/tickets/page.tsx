@@ -223,7 +223,7 @@ export default function TicketsPage() {
 
           {/* Ticket List */}
           <div className="border border-gray-200 rounded-lg overflow-hidden flex-1">
-            <div className="h-full overflow-y-auto">
+            <div className="h-full overflow-y-auto custom-scrollbar">
               <Table>
                 <TableHeader>
                   <TableRow>

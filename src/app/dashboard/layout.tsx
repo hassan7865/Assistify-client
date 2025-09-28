@@ -22,7 +22,7 @@ export default function DashboardLayout({
                 <div className="flex flex-col flex-1 overflow-hidden">
                  
                   {/* Page Content */}
-                  <div className="flex-1 overflow-y-auto p-1">
+                  <div className="fflex-1 overflow-y-auto custom-scrollbar p-1">
                     {children}
                   </div>
                 </div>
