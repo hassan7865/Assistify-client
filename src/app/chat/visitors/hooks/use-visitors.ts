@@ -21,7 +21,7 @@ export const useVisitors = () => {
   const CURRENT_AGENT = user
     ? {
         id: user.user_id,
-        name: user.name || user.email,
+        name: user.organization_name || user.name || user.email,
       }
     : null;
 

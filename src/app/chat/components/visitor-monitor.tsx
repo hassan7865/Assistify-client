@@ -40,7 +40,7 @@ const VisitorMonitor: React.FC = () => {
     if (user) {
       return {
         id: user.user_id,
-        name: user.name || user.email,
+        name: user.organization_name || user.name || user.email,
       };
     }
     return null;

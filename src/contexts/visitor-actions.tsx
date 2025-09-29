@@ -87,7 +87,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
         const visitor = {
           visitor_id: visitorId,
           agent_id: user.user_id,
-          agent_name: user.name || user.email,
+          agent_name: user.organization_name || user.name || user.email,
           status: "active",
           started_at: started_at || new Date().toISOString(),
           session_id: session_id,
