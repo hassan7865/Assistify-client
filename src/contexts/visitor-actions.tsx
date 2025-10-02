@@ -81,7 +81,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
 
       if (response.data.success) {
         // Get visitor data from the API response
-        const { session_id, metadata, started_at } = response.data.data;
+        const { session_id, metadata } = response.data;
         
         // Create visitor object with API response data
         const visitor = {
@@ -89,7 +89,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
           agent_id: user.user_id,
           agent_name: user.organization_name || user.name || user.email,
           status: "active",
-          started_at: started_at || new Date().toISOString(),
+          started_at: new Date().toISOString(), // Use current time since API doesn't return started_at
           session_id: session_id,
           metadata: metadata || {}
         };

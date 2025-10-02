@@ -117,10 +117,10 @@ export default function DashboardPage() {
     <div className="flex h-screen bg-white">
       {/* Left Sidebar */}
       <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-        <h2 className="text-xs text-gray-800 mb-3 font-semibold">Dashboard</h2>
+        <h2 className="text-sm text-gray-800 mb-3 font-bold">Dashboard</h2>
         <div className="mb-4">
-          <h3 className="text-xs text-gray-800 mb-1 font-semibold">Updates to your tickets</h3>
-          <p className="text-xs text-gray-500">No recent updates.</p>
+          <h3 className="text-sm text-gray-800 mb-1 font-semibold">Updates to your tickets</h3>
+          <p className="text-sm text-gray-500">No recent updates.</p>
         </div>
       </div>
 
@@ -131,17 +131,17 @@ export default function DashboardPage() {
           <div className="flex gap-4 mb-4">
             {/* Open Tickets */}
             <div>
-              <h3 className="text-xs text-gray-800 mb-2">Open tickets (current)</h3>
+              <h3 className="text-xs font-semibold text-gray-800 mb-2">Open tickets (current)</h3>
               <div className="flex">
                 <Card className="w-16 h-16 flex items-center justify-center rounded-none border-r-0">
                   <div className="text-center">
-                    <div className="text-xs text-gray-800 font-semibold">10</div>
+                    <div className="text-sm text-gray-800 font-bold">10</div>
                     <div className="text-xs text-gray-600">YOU</div>
                   </div>
                 </Card>
                 <Card className="w-16 h-16 flex items-center justify-center rounded-none">
                   <div className="text-center">
-                    <div className="text-xs text-gray-800 font-semibold">14</div>
+                    <div className="text-sm text-gray-800 font-bold">14</div>
                     <div className="text-xs text-gray-600">GROUPS</div>
                   </div>
                 </Card>
@@ -150,23 +150,23 @@ export default function DashboardPage() {
 
             {/* Ticket Statistics */}
             <div>
-              <h3 className="text-xs text-gray-800 mb-2">Ticket statistics (this week)</h3>
+              <h3 className="text-xs text-gray-800 mb-2 font-semibold">Ticket statistics (this week)</h3>
               <div className="flex">
                 <Card className="w-16 h-16 flex items-center justify-center rounded-none border-r-0">
                   <div className="text-center">
-                    <div className="text-xs text-gray-800 font-semibold">0</div>
+                    <div className="text-sm text-gray-800 font-bold">0</div>
                     <div className="text-xs text-gray-600">GOOD</div>
                   </div>
                 </Card>
                 <Card className="w-16 h-16 flex items-center justify-center rounded-none border-r-0">
                   <div className="text-center">
-                    <div className="text-xs text-gray-800 font-semibold">0</div>
+                    <div className="text-sm text-gray-800 font-bold">0</div>
                     <div className="text-xs text-gray-600">BAD</div>
                   </div>
                 </Card>
                 <Card className="w-16 h-16 flex items-center justify-center rounded-none">
                   <div className="text-center">
-                    <div className="text-xs text-gray-800 font-semibold ">0</div>
+                    <div className="text-sm text-gray-800 font-bold ">0</div>
                     <div className="text-xs text-gray-600">SOLVED</div>
                   </div>
                 </Card>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <h2 className="text-xs text-gray-800">
+              <h2 className="text-xs text-gray-800 font-semibold">
                 Tickets requiring your attention (14)
               </h2>
               <a href="#" className="text-xs text-blue-600 underline">What is this?</a>
@@ -199,11 +199,11 @@ export default function DashboardPage() {
                     <TableHead className="w-12">
                       <Checkbox className="w-3 h-3 border border-gray-300" />
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">ID</TableHead>
-                    <TableHead className="text-xs font-semibold">Subject</TableHead>
-                    <TableHead className="text-xs font-semibold">Requester updated</TableHead>
-                    <TableHead className="text-xs font-semibold">Group</TableHead>
-                    <TableHead className="text-xs font-semibold">Assignee</TableHead>
+                    <TableHead className="text-sm font-semibold">ID</TableHead>
+                    <TableHead className="text-sm font-semibold">Subject</TableHead>
+                    <TableHead className="text-sm font-semibold">Requester updated</TableHead>
+                    <TableHead className="text-sm font-semibold">Group</TableHead>
+                    <TableHead className="text-sm font-semibold">Assignee</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -219,16 +219,16 @@ export default function DashboardPage() {
                           ) : (
                             <Square className="w-2 h-2 text-orange-500 fill-current" />
                           )}
-                          <span className="text-xs">#{ticket.id}</span>
+                          <span className="text-sm">#{ticket.id}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-xs text-gray-900 truncate">{ticket.subject}</div>
-                        <div className="text-xs text-gray-500">{ticket.requester}</div>
+                        <div className="text-sm text-gray-900 truncate">{ticket.subject}</div>
+                        <div className="text-sm text-gray-500">{ticket.requester}</div>
                       </TableCell>
-                      <TableCell className="text-xs text-gray-500">{ticket.updated}</TableCell>
-                      <TableCell className="text-xs text-gray-500">{ticket.group}</TableCell>
-                      <TableCell className="text-xs text-gray-500">{ticket.assignee}</TableCell>
+                      <TableCell className="text-sm text-gray-500">{ticket.updated}</TableCell>
+                      <TableCell className="text-sm text-gray-500">{ticket.group}</TableCell>
+                      <TableCell className="text-sm text-gray-500">{ticket.assignee}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

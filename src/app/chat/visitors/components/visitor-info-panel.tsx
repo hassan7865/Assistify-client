@@ -51,15 +51,16 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
               />
-              <input
+             
+            </div>
+          </div>
+          <input
                 type="tel"
                 placeholder="Add phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
               />
-            </div>
-          </div>
           <textarea
             placeholder="Add visitor notes"
             value={notes}

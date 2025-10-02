@@ -139,7 +139,7 @@ export default function TicketsPage() {
       }`}>
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs text-gray-800 font-semibold">Views</h2>
+            <h2 className="text-sm text-gray-800 font-semibold">Views</h2>
             <button
               onClick={() => setSidebarOpen(false)}
               className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -152,7 +152,7 @@ export default function TicketsPage() {
             {sidebarViews.map((view) => (
               <div
                 key={view.name}
-                className={`flex items-center justify-between px-3 py-2 rounded text-xs cursor-pointer ${
+                className={`flex items-center justify-between px-3 py-2 rounded text-sm cursor-pointer ${
                   view.active
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "text-gray-700 hover:bg-gray-100"
@@ -230,31 +230,31 @@ export default function TicketsPage() {
                     <TableHead className="w-12">
                       <Checkbox className="w-3 h-3 border border-gray-300" />
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">
+                    <TableHead className="text-sm font-semibold">
                       <div className="flex items-center gap-1">
                         Subject
                         <ChevronsUpDown className="w-3 h-3" />
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">
+                    <TableHead className="text-sm font-semibold">
                       <div className="flex items-center gap-1">
                         Requester
                         <ChevronsUpDown className="w-3 h-3" />
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">
+                    <TableHead className="text-sm font-semibold">
                       <div className="flex items-center gap-1">
                         Requested
                         <ChevronsUpDown className="w-3 h-3" />
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">
+                    <TableHead className="text-sm font-semibold">
                       <div className="flex items-center gap-1">
                         Type
                         <ChevronsUpDown className="w-3 h-3" />
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">
+                    <TableHead className="text-sm font-semibold">
                       <div className="flex items-center gap-1">
                         Priority
                         <ChevronsUpDown className="w-3 h-3" />
@@ -271,13 +271,13 @@ export default function TicketsPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Circle className="w-2 h-2 text-red-500 fill-current" />
-                          <span className="text-xs text-gray-900">{ticket.subject}</span>
+                          <span className="text-sm text-gray-900">{ticket.subject}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-gray-700">{ticket.requester}</TableCell>
-                      <TableCell className="text-xs text-gray-700">{ticket.requested}</TableCell>
-                      <TableCell className="text-xs text-gray-700">{ticket.type}</TableCell>
-                      <TableCell className="text-xs text-gray-700">{ticket.priority}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{ticket.requester}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{ticket.requested}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{ticket.type}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{ticket.priority}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -510,6 +510,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   const createWebSocketHandlers = useCallback((visitor: Visitor) => {
     const onMessage = (data: any) => {
       if (data.type === 'chat_message') {
+        console.log(data);
         const newMessage: ChatMessage = {
           id: data.message_id || `${Date.now()}-${Math.random()}`,
           sender: data.sender_type === 'visitor' ? 'visitor' : 
@@ -741,6 +742,15 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   const handleEndChat = useCallback(() => {
     if (!state.selectedVisitor || !currentAgent?.id) return;
 
+    // Check if session is already ended to prevent duplicate cleanup
+    if (state.selectedVisitor.status === 'closed') {
+      // Just close the dialog without emitting events or cleanup
+      dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+      dispatch({ type: 'SET_CHAT_OPEN', payload: false });
+      dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+      return;
+    }
+
     dispatch({ type: 'SET_ENDING_CHAT', payload: true });
 
     const success = wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
@@ -784,6 +794,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
       type: 'chat_message',
       message: message.trim(),
+      sender_type: 'client_agent',
       timestamp: new Date().toISOString()
     });
   }, [state.selectedVisitor, currentAgent]);
@@ -805,7 +816,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
       type: 'typing_indicator',
       is_typing: isTyping,
-      sender_type: 'agent',
+      sender_type: 'client_agent',
       timestamp: new Date().toISOString()
     });
   }, [state.selectedVisitor, currentAgent]);
@@ -816,7 +827,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
       type: 'message_seen',
       message_id: messageId,
-      sender_type: 'agent',
+      sender_type: 'client_agent',
       timestamp: new Date().toISOString()
     });
   }, [state.selectedVisitor, currentAgent]);

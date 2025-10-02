@@ -31,7 +31,7 @@ export interface ChatConversation {
     page_url?: string;
   };
   messages: Array<{
-    sender_type: 'visitor' | 'client_agent';
+    sender_type: 'visitor' | 'client_agent' | 'system';
     sender_id: string;
     message: string;
     timestamp: string;

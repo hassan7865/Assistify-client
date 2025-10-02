@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Smile, ThumbsUp, Paperclip, MessageCircle } from 'lucide-react';
+import EmojiPicker from 'emoji-picker-react';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { Visitor } from '../../types';
 
@@ -22,10 +23,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onChatEnded
 }) => {
   const [chatMessage, setChatMessage] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const seenMessagesRef = useRef<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const { 
     chatMessages, 
     isConnected, 
@@ -69,10 +72,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const hasAgentMessages = chatMessages.some(msg => msg.sender === 'agent');
       
       if (!hasAgentMessages) {
-        // Send agent joined message first as a regular message
         const joinedMessage = `${currentAgent?.name || 'Agent'} has joined the chat`;
-        sendChatMessage(joinedMessage);
-        // Add a longer delay to ensure the system message is sent first
+        sendSystemMessage(joinedMessage);
+      
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       
@@ -133,6 +135,45 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       typingTimeoutRef.current = null;
     }
   };
+
+  // Emoji picker functions
+  const handleEmojiClick = () => {
+    setShowEmojiPicker(!showEmojiPicker);
+  };
+
+  const handleEmojiSelect = (emojiData: any) => {
+    const emoji = emojiData.emoji;
+    const currentPosition = textareaRef.current?.selectionStart || 0;
+    const newMessage = chatMessage.slice(0, currentPosition) + emoji + chatMessage.slice(currentPosition);
+    setChatMessage(newMessage);
+    
+    // Focus back to textarea and set cursor position after emoji
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(currentPosition + emoji.length, currentPosition + emoji.length);
+      }
+    }, 0);
+    
+    setShowEmojiPicker(false);
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   // Mark visitor messages as seen when they're displayed
   useEffect(() => {
@@ -195,26 +236,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               chatMessages.map((message, index) => {
                 const isConsecutiveFromSameSender = index > 0 && 
                   chatMessages[index - 1].sender === message.sender &&
-                  !chatMessages[index - 1].message.includes('joined') && // Exclude system messages
+                  chatMessages[index - 1].sender !== 'system' && // Exclude system messages
                   new Date(message.timestamp).getTime() - new Date(chatMessages[index - 1].timestamp).getTime() < 30000;
-                
-                const isLastMessage = index === chatMessages.length - 1;
-                const nextMessage = !isLastMessage ? chatMessages[index + 1] : null;
-                const isLastInGroup = isLastMessage || 
-                  (nextMessage && nextMessage.sender !== message.sender) ||
-                  (nextMessage && new Date(nextMessage.timestamp).getTime() - new Date(message.timestamp).getTime() >= 30000);
-                
-                // Check if this is an agent joined message
-                const isAgentJoinedMessage = message.message.includes('joined') && message.message.includes('has joined');
+              
+                // Check if this is a system message
+                const isSystemMessage = message.sender === 'system';
                 
                 return (
                   <div key={message.id} className="flex flex-col">
                     {/* Add separator line for non-consecutive messages */}
-                    {!isConsecutiveFromSameSender && index > 0 && !isAgentJoinedMessage && (
+                    {!isConsecutiveFromSameSender && index > 0 && !isSystemMessage && (
                       <div className="border-b border-gray-400 border-dashed my-2"></div>
                     )}
                     
-                    {isAgentJoinedMessage ? (
+                    {isSystemMessage ? (
                       // Special styling for agent joined message
                       <div className="flex justify-center items-center">
                         <div className="text-xs text-gray-500 italic">
@@ -245,7 +280,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         </div>
                       </>
                     )}
-                    {message.sender === 'agent' && !isAgentJoinedMessage && (
+                    {message.sender === 'agent' && !isSystemMessage && (
                       <div className="flex justify-end">
                         {message.seen_status == 'read' ? (
                           // Double checkmarks for read messages
@@ -307,7 +342,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {canSend ? (
     <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border flex-[2] min-h-[120px]">
     <div className="relative h-full">
-      {!hasStartedTyping ? (
+      {!hasStartedTyping && chatMessages.length === 0 ? (
         /* Initial state - show centered message with hidden textarea */
         <div className="relative h-full w-full">
           {/* Hidden textarea to capture typing */}
@@ -352,7 +387,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           />
           {/* Action Buttons - positioned at bottom right */}
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
-            <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
+            <button 
+              onClick={handleEmojiClick}
+              className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+            >
               <Smile className="h-4 w-4" />
             </button>
             <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
@@ -362,6 +400,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <Paperclip className="h-4 w-4" />
             </button>
           </div>
+          
+          {/* Emoji Picker */}
+          {showEmojiPicker && (
+            <div 
+              ref={emojiPickerRef}
+              className="absolute bottom-12 right-2 z-50"
+            >
+              <EmojiPicker
+                onEmojiClick={handleEmojiSelect}
+                width={300}
+                height={400}
+                searchDisabled={false}
+                skinTonesDisabled={false}
+                previewConfig={{
+                  showPreview: true,
+                  defaultEmoji: '1f60a'
+                }}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

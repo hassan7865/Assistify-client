@@ -118,7 +118,7 @@ const VisitorSearch: React.FC<VisitorSearchProps> = ({
           )}
         </div>
         
-        <Button 
+        {/* <Button 
           onClick={onRefresh} 
           disabled={loading} 
           variant="outline"
@@ -126,7 +126,7 @@ const VisitorSearch: React.FC<VisitorSearchProps> = ({
         >
           <FiRefreshCw className={cn("w-3 h-3 mr-1", loading && "animate-spin")} />
           {loading ? 'Loading...' : 'Refresh'}
-        </Button>
+        </Button> */}
       </div>
     </div>
   );

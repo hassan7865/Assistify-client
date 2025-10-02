@@ -11,7 +11,7 @@ import {
   getOnlineStatus, 
   getReferrerDisplay, 
   getMessageCount, 
-  getStatusColor,
+  getStatusIcon,
   getCountryName
 } from '@/lib/visitor-icons';
 import { Visitor } from '../../types';
@@ -156,8 +156,7 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                     >
                       {/* Visitor */}
                       <div className="w-32 flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full flex-shrink-0", getStatusColor(visitor))} />
-                        <MessageCircle className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
+                        {getStatusIcon(visitor)}
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="text-xs font-medium text-gray-900 truncate cursor-pointer">

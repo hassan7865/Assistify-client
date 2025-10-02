@@ -37,10 +37,10 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
                 {/* Empty state - no content to avoid unnecessary scrollbars */}
               </div>
             ) : (
-              conversation.messages.map((message, index) => {
+              conversation.messages.map((message, index: number) => {
                 const isConsecutiveFromSameSender = index > 0 && 
                   conversation.messages[index - 1].sender_type === message.sender_type &&
-                  !conversation.messages[index - 1].message.includes('joined') && // Exclude system messages
+                  conversation.messages[index - 1].sender_type !== 'system' && // Exclude system messages
                   new Date(message.timestamp).getTime() - new Date(conversation.messages[index - 1].timestamp).getTime() < 30000;
                 
                 const isLastMessage = index === conversation.messages.length - 1;
@@ -49,17 +49,17 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
                   (nextMessage && nextMessage.sender_type !== message.sender_type) ||
                   (nextMessage && new Date(nextMessage.timestamp).getTime() - new Date(message.timestamp).getTime() >= 30000);
                 
-                // Check if this is an agent joined message
-                const isAgentJoinedMessage = message.message.includes('joined') && message.message.includes('has joined');
+                // Check if this is a system message
+                const isSystemMessage = message.sender_type === 'system';
                 
                 return (
                   <div key={`${message.sender_id}-${index}`} className="flex flex-col">
                     {/* Add separator line for non-consecutive messages */}
-                    {!isConsecutiveFromSameSender && index > 0 && !isAgentJoinedMessage && (
+                    {!isConsecutiveFromSameSender && index > 0 && !isSystemMessage && (
                       <div className="border-b border-gray-400 border-dashed my-2"></div>
                     )}
                     
-                    {isAgentJoinedMessage ? (
+                    {isSystemMessage ? (
                       // Special styling for agent joined message
                       <div className="flex justify-center items-center">
                         <div className="text-xs text-gray-500 italic">

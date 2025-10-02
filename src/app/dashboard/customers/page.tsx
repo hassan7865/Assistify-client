@@ -139,7 +139,7 @@ export default function CustomersPage() {
       }`}>
         <div className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs text-gray-800 font-semibold">Customer lists</h2>
+            <h2 className="text-sm text-gray-800 font-semibold">Customer lists</h2>
             <button
               onClick={() => setSidebarOpen(false)}
               className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -152,7 +152,7 @@ export default function CustomersPage() {
             {sidebarItems.map((item) => (
               <div
                 key={item.name}
-                className={`px-3 py-2 rounded text-xs cursor-pointer ${
+                className={`px-3 py-2 rounded text-sm cursor-pointer ${
                   item.active
                     ? "bg-blue-100 text-blue-800 font-medium"
                     : "text-gray-700 hover:bg-gray-100"
@@ -229,15 +229,15 @@ export default function CustomersPage() {
                     <TableHead className="w-12">
                       <Checkbox className="w-3 h-3 border border-gray-300" />
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">
+                    <TableHead className="text-sm font-semibold">
                       <div className="flex items-center gap-1">
                         Name
                         <ChevronsUpDown className="w-3 h-3" />
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">Email</TableHead>
-                    <TableHead className="text-xs font-semibold">Tags</TableHead>
-                    <TableHead className="text-xs font-semibold">Timezone</TableHead>
+                    <TableHead className="text-sm font-semibold">Email</TableHead>
+                    <TableHead className="text-sm font-semibold">Tags</TableHead>
+                    <TableHead className="text-sm font-semibold">Timezone</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,12 +251,12 @@ export default function CustomersPage() {
                           <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
                             <User className="w-3 h-3 text-gray-600" />
                           </div>
-                          <a href="#" className="text-xs text-blue-600 hover:underline">{customer.name}</a>
+                          <a href="#" className="text-sm text-blue-600 hover:underline">{customer.name}</a>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-gray-700">{customer.email}</TableCell>
-                      <TableCell className="text-xs text-gray-700">{customer.tags}</TableCell>
-                      <TableCell className="text-xs text-gray-700">{customer.timezone}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{customer.email}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{customer.tags}</TableCell>
+                      <TableCell className="text-sm text-gray-700">{customer.timezone}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

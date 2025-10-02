@@ -11,7 +11,9 @@ import {
   FaAndroid,
   FaUbuntu
 } from 'react-icons/fa';
+import {  MessageSquareMore, MessageSquareWarning } from 'lucide-react';
 import { ReactCountryFlag } from "react-country-flag";
+import { BsExclamation } from 'react-icons/bs';
 
 // Country code mapping
 const countryCodeMap: { [key: string]: string } = {
@@ -231,16 +233,28 @@ export const getMessageCount = (visitor: { message_count?: number }) => {
 };
 
 /**
- * Get status color class
+ * Get status icon component using Lucide icons
  * @param visitor - Visitor object
- * @returns Status color class
+ * @returns Status icon component
  */
-export const getStatusColor = (visitor: { status?: string; agent_id?: string }) => {
-  if (visitor.status === 'served' || visitor.agent_id) {
-    return 'bg-green-500'; // Served visitors - green
+export const getStatusIcon = (visitor: { status?: string; agent_id?: string }) => {
+  if (visitor.status === 'active') {
+    return (
+      <div className="w-6 h-6 bg-lime-500 rounded-sm flex items-center justify-center">
+        <MessageSquareMore className="w-4 h-4 text-white" />
+      </div>
+    );
   }
-  if (visitor.status === 'incoming') {
-    return 'bg-red-500'; // Incoming visitors - red
+  if (visitor.status === 'pending') {
+    return (
+      <div className="w-6 h-6 bg-red-500 rounded-sm flex items-center justify-center">
+        <BsExclamation className="w-4 h-4 text-white" />
+      </div>
+    );
   }
-  return 'bg-gray-400'; // Other statuses - gray
+  return (
+    <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
+  );
 };
+
+
