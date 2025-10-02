@@ -8,9 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatConversation } from '../hooks/use-chat-history';
 import { getCountryFlag, getBrowserIcon, getOSIcon, getDeviceIcon } from '@/lib/visitor-icons';
 import { getConversationVisitorName, getConversationAgentName } from '../../types';
+import HistoryChatInterface from './history-chat-interface';
 
 interface HistorySidebarProps {
   conversation: ChatConversation;
@@ -26,9 +28,22 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
   const [notes, setNotes] = useState("");
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 24) {
+      if (diffInHours < 1) return "Just now";
+      return `${diffInHours} hrs ago`;
+    }
+    
+    // For 24+ hours, show format like "Oct 01 6:03 AM"
+    return time.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     });
   };
 
@@ -57,7 +72,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
   };
 
   return (
-    <div className="h-screen w-full bg-white flex flex-col relative">
+    <div className="h-full w-full bg-gray-100 flex flex-col relative">
       {/* Loading Overlay - Only show when closing */}
       {isClosing && (
         <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
@@ -71,16 +86,16 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
       <div className="flex-1 flex flex-col min-h-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between p-3 border-b border-gray-200">
-            <TabsList className="grid w-auto grid-cols-2 rounded-none bg-transparent h-auto p-0 gap-0">
+            <TabsList className="grid w-auto grid-cols-2 rounded-none bg-gray-100 border-b border-gray-200 h-auto p-0 gap-0">
               <TabsTrigger 
                 value="transcript" 
-                className="rounded-none bg-transparent shadow-none border-0 data-[state=active]:bg-blue-100 data-[state=active]:text-gray-900 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 py-1 px-2 font-medium text-2xs"
+                className="rounded-none bg-transparent shadow-none border-0 data-[state=active]:bg-blue-50 data-[state=active]:text-gray-900 data-[state=active]:border-t data-[state=active]:border-l data-[state=active]:border-r data-[state=active]:border-blue-300 py-1 px-2 font-bold text-xs cursor-pointer"
               >
                 Transcript
               </TabsTrigger>
               <TabsTrigger 
                 value="userinfo" 
-                className="rounded-none bg-transparent shadow-none border-0 data-[state=active]:bg-blue-100 data-[state=active]:text-gray-900 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 py-1 px-2 font-medium text-2xs"
+                className="rounded-none bg-transparent shadow-none border-0 data-[state=active]:bg-blue-50 data-[state=active]:text-gray-900 data-[state=active]:border-t data-[state=active]:border-l data-[state=active]:border-r data-[state=active]:border-blue-300 py-1 px-2 font-bold text-xs cursor-pointer"
               >
                 User info
               </TabsTrigger>
@@ -101,7 +116,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
               {activeTab === 'userinfo' && (
                 <Button 
                   variant="destructive"
-                  className="bg-red-600 hover:bg-red-700 h-7 rounded-none text-white text-xs px-1"
+                  className="bg-[#cd3642] hover:bg-[#cd3642]/90 h-7  text-white font-semibold text-xs px-1 rounded-sm"
                
                 >
                   Ban Visitor
@@ -119,242 +134,164 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
           </div>
 
           {/* User Info Tab */}
-          <TabsContent value="userinfo" className="flex-1 overflow-y-auto m-0 p-3 bg-white">
-            <div className="space-y-4">
-              {/* Visitor Details */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    {/* Profile Icon */}
-                    <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <User className="w-6 h-6 text-white" />
+          <TabsContent value="userinfo" className="flex-1 overflow-y-auto m-0 p-3 custom-scrollbar">
+            <div className="space-y-3">
+              {/* Visitor Profile */}
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <div className="w-12 h-12 bg-[#10418c] rounded-lg flex items-center justify-center flex-shrink-0">
+                    <img 
+                      src="/user.png" 
+                      alt="User" 
+                      className="w-8 h-8 object-contain"
+                    />
                     </div>
-                    
-                    {/* Input Fields */}
-                    <div className="flex-1 space-y-3">
-                      <Input 
+                  <div className="flex-1 space-y-2">
+                    <input
                         type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
                         placeholder="Add name"
-                        className="h-7 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                      defaultValue={conversation.metadata?.name || ''}
+                      className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
                       />
-                      
-                      <Input 
+                    <input
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="Add email"
-                        className="h-7 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                      defaultValue={conversation.metadata?.email || ''}
+                      className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
                       />
                       
-                      <Input 
+                  </div>
+                </div>
+                <input
                         type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
                         placeholder="Add phone number"
-                        className="h-7 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
+                      className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
+                    />
+                <textarea
+                  placeholder="Add visitor notes"
+                  rows={3}
+                  className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-xs"
                       />
                     </div>
+
+
+              {/* Visitor Statistics */}
+              <div className="bg-white shadow-sm p-2">
+                <div className="grid grid-cols-2 divide-x divide-gray-200">
+                  {/* Past Visits */}
+                  <div className="flex flex-col items-center justify-center px-2">
+                    <div className="text-sm font-bold text-gray-900">11</div>
+                    <div className="text-xs text-gray-600 text-center">Past visits</div>
                   </div>
                   
-                  {/* Notes - Full Width */}
-                  <div className="mt-3">
-                    <Textarea 
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add visitor notes"
-                      rows={3}
-                      className="resize-none h-16 w-full text-xs border-gray-300 focus:outline-none focus:ring-0 focus:border-gray-400 bg-white"
-                    />
+                  {/* Message Count */}
+                  <div className="flex flex-col items-center justify-center px-2">
+                    <div className="text-sm font-bold text-gray-900">{conversation.message_count || 0}</div>
+                    <div className="text-xs text-gray-600 text-center">Past chats</div>
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Agent Information */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Agent Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {conversation.agent_info ? (
-                    <>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-700">Name</label>
-                        <div className="text-xs text-gray-600">{conversation.agent_info.name}</div>
+                      </div>
                       </div>
                       
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-700">Email</label>
-                        <div className="text-xs text-gray-600">{conversation.agent_info.email}</div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-700">Role</label>
-                        <Badge variant="secondary" className="text-xs px-2 py-0">{conversation.agent_info.role}</Badge>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-xs text-gray-500">
-                      {conversation.agent_id ? 'Agent information not available' : 'No agent assigned'}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-
-              {/* Visitor Stats */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Conversation Statistics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-2 text-center">
-                    <Card className="p-2">
-                      <div className="text-lg font-bold text-gray-900">{conversation.message_count}</div>
-                      <div className="text-xs text-muted-foreground">Messages</div>
-                    </Card>
-                    <Card className="p-2">
-                      <div className="text-lg font-bold text-gray-900">{getConversationDuration()}</div>
-                      <div className="text-xs text-muted-foreground">Duration</div>
-                    </Card>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Device & Browser Info */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Monitor className="w-4 h-4" />
-                    Device & Browser
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {conversation.metadata?.browser && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Browser:</span>
-                      <div className="flex items-center gap-1">
-                        {getBrowserIcon(conversation.metadata.browser, conversation.metadata.user_agent, 'h-3 w-3')}
-                        <span className="font-medium">{conversation.metadata.browser}</span>
-                      </div>
-                    </div>
-                  )}
-                  {conversation.metadata?.os && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">OS:</span>
-                      <div className="flex items-center gap-1">
-                        {getOSIcon(conversation.metadata.os, conversation.metadata.user_agent, 'h-3 w-3')}
-                        <span className="font-medium">{conversation.metadata.os}</span>
-                      </div>
-                    </div>
-                  )}
-                  {conversation.metadata?.device_type && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Device:</span>
-                      <div className="flex items-center gap-1">
-                        {getDeviceIcon(conversation.metadata.device_type, conversation.metadata.user_agent, 'h-3 w-3')}
-                        <span className="font-medium">{conversation.metadata.device_type}</span>
-                      </div>
-                    </div>
-                  )}
-                  {conversation.metadata?.user_agent && (
-                    <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground">User Agent:</span>
-                      <div className="text-xs text-gray-600 bg-gray-100 p-1 rounded break-all">
-                        {conversation.metadata.user_agent}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Location Info */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Location & Network
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {getLocationString() && (
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Location:</span>
-                      <div className="flex items-center gap-1">
-                        {getCountryFlag(conversation.metadata?.country, { width: '12px', height: '9px' })}
-                        <span className="font-medium">{getLocationString()}</span>
-                      </div>
-                    </div>
-                  )}
-                  {conversation.metadata?.timezone && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">Timezone:</span>
-                      <span className="font-medium">{conversation.metadata.timezone}</span>
-                    </div>
-                  )}
-                  {conversation.metadata?.ip_address && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-muted-foreground">IP Address:</span>
-                      <span className="font-medium font-mono">{conversation.metadata.ip_address}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
               {/* Visitor Path */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    Visitor Path
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {conversation.metadata?.referrer && (
-                    <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground">Referrer:</span>
-                      <div className="text-xs text-teal-600 bg-teal-50 p-1 rounded break-all">
-                        {conversation.metadata.referrer}
+              <div className="bg-white shadow-sm p-3">
+                <h3 className="text-xs text-gray-900 mb-2">Visitor Path</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <span>↓</span>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a 
+                          href={conversation.metadata?.page_url || '#'} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="truncate text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
+                        >
+                          {conversation.metadata?.page_url || '-'}
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                        <p>{conversation.metadata?.page_url || 'No page URL available'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a 
+                          href={conversation.metadata?.referrer || '#'} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="truncate text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
+                        >
+                          {conversation.metadata?.referrer || '-'}
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                        <p>{conversation.metadata?.referrer || 'No referrer available'}</p>
+                      </TooltipContent>
+                    </Tooltip>
                       </div>
                     </div>
-                  )}
-                  {conversation.metadata?.page_url && (
-                    <div className="space-y-1">
-                      <span className="text-xs text-muted-foreground">Current Page:</span>
-                      <div className="text-xs text-teal-600 bg-teal-50 p-1 rounded break-all">
-                        {conversation.metadata.page_url}
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
 
+              {/* Visitor Technical Details */}
+              <div className="bg-white shadow-sm p-3">
+                <div className="space-y-1 text-xs text-gray-600">
+                  <div>
+                    <span className="font-medium">Location</span><br />
+                    {conversation.metadata?.city || 'Unknown'}, {conversation.metadata?.country || 'Unknown'}
+                    </div>
+                  <div>
+                    <span className="font-medium">Browser</span><br />
+                    {conversation.metadata?.browser || 'Unknown'}
+                      </div>
+                  <div>
+                    <span className="font-medium">Platform</span><br />
+                    {conversation.metadata?.os || 'Unknown'}
+                    </div>
+                  <div>
+                    <span className="font-medium">Device</span><br />
+                    {conversation.metadata?.device_type || '-'}
+                      </div>
+                  <div>
+                    <span className="font-medium">IP address</span><br />
+                    {conversation.metadata?.ip_address || '-'}
+                    </div>
+                  <div>
+                    <span className="font-medium">Hostname</span><br />
+                    {'-'}
+                      </div>
+                  <div>
+                    <span className="font-medium">User agent</span><br />
+                    <span className="break-all">{conversation.metadata?.user_agent || '-'}</span>
+                      </div>
+                      </div>
+                    </div>
             </div>
           </TabsContent>
 
           {/* Conversation Tab */}
           <TabsContent value="transcript" className="flex-1 m-0 min-h-0 flex flex-col">
-            <div className="flex-1 overflow-y-auto p-4 bg-white">
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
               {/* Conversation Details */}
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Rating:</span>
-                  <span className="text-gray-900">—</span>
+               <div className="space-y-3 mb-6">
+                 <div className="flex gap-2 text-sm">
+                   <span className="text-gray-600 text-xs w-24">Rating:</span>
+                   <span className="text-gray-900 text-xs">—</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Comment:</span>
-                  <span className="text-gray-900">—</span>
+                 <div className="flex gap-2 text-sm">
+                   <span className="text-gray-600 text-xs w-24">Comment:</span>
+                   <span className="text-gray-900 text-xs">—</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Support ticket:</span>
-                  <span className="text-blue-600 cursor-pointer">Create ticket</span>
+                 <div className="flex gap-2 text-sm">
+                   <span className="text-gray-600 text-xs w-24">Support ticket:</span>
+                   <span className="text-blue-600 cursor-pointer text-xs">Create ticket</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tags:</span>
+                 <div className="flex gap-2 text-sm">
+                   <span className="text-gray-600 text-xs w-24">Tags:</span>
                   <div className="bg-gray-100 px-2 py-1 rounded text-xs text-gray-600 cursor-pointer">
                     <Edit2 className="w-3 h-3" />
                   </div>
@@ -365,80 +302,13 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
               <div className="border-b border-dashed border-gray-300 mb-6"></div>
 
               {/* Chat Messages */}
-              <div className="space-y-4">
-                {/* Join Messages */}
-                <div className="text-center text-sm text-gray-500 italic">
-                  <div className="flex justify-between items-center">
-                    <span>{getConversationAgentName(conversation)} has joined.</span>
-                    <span className="text-xs text-gray-400">{formatTime(conversation.created_at)}</span>
-                  </div>
-                </div>
-                <div className="text-center text-sm text-gray-500 italic">
-                  <div className="flex justify-between items-center">
-                    <span>{getConversationVisitorName(conversation)} has joined.</span>
-                    <span className="text-xs text-gray-400">{formatTime(conversation.created_at)}</span>
-                  </div>
-                </div>
-
-                {/* Agent Message */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-gray-900">{getConversationAgentName(conversation)}</span>
-                    <span className="text-xs text-gray-500">{formatTime(conversation.created_at)}</span>
-                  </div>
-                  <div className="text-sm text-gray-900">
-                    Hi! Thanks for stopping by.
-                  </div>
-                </div>
-
-                {/* Interactive Question */}
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-900">
-                    What services are you looking for?
-                  </div>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      Book Publishing
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      Multi-Platform Publishing
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      Custom Illustrations
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      Editing & Proofreading
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      Marketing & Promotion
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      Book Writing Services
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-gray-900 cursor-pointer">
-                      <input type="radio" name="services" className="w-3 h-3" />
-                      All of the Above
-                    </label>
-                  </div>
-                </div>
-
-                {/* Leave Message */}
-                <div className="text-center text-sm text-gray-500 italic">
-                  <div className="flex justify-between items-center">
-                    <span>{getConversationVisitorName(conversation)} has left.</span>
-                    <span className="text-xs text-gray-400">{formatTime(conversation.updated_at)}</span>
-                  </div>
-                </div>
-
-                {/* Dotted Line */}
-                <div className="border-b border-dashed border-gray-300 mt-6"></div>
-              </div>
+              <HistoryChatInterface 
+                conversation={conversation}
+                selectedAgent={{
+                  id: conversation.agent_id || '',
+                  name: conversation.agent_info?.name || ''
+                }}
+              />
             </div>
           </TabsContent>
         </Tabs>

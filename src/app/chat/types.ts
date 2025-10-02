@@ -7,6 +7,7 @@ export interface Visitor {
   started_at?: string;
   session_id?: string;
   message_count?: number;
+  hasUnreadMessages?: boolean;
   last_message?: {
     content: string;
     sender_type: string;
@@ -55,7 +56,7 @@ export const getVisitorName = (visitor: Visitor): string => {
 };
 
 export const getAgentName = (visitor: Visitor): string => {
-  return visitor.agent_name || 'Unassigned';
+  return visitor.agent_name || '-';
 };
 
 // Utility functions for chat conversation data
@@ -66,10 +67,10 @@ export const getConversationVisitorName = (conversation: { metadata?: { name?: s
 };
 
 export const getConversationAgentName = (conversation: { agent_info?: { name: string }; agent_id?: string }): string => {
-  if (conversation.agent_info) {
-    return conversation.agent_info.name;
+  if (conversation.agent_info && conversation.agent_id) {
+    return conversation.agent_info.name || '-';
   }
-  return conversation.agent_id ? 'Agent' : 'Unassigned';
+  return '-';
 };
 
 export const getChatDuration = (startedAt?: string): string => {

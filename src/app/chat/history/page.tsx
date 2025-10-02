@@ -89,17 +89,19 @@ export default function HistoryPage() {
     const time = new Date(timestamp);
     const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
     
-    if (diffInHours < 1) return "Just now";
-    if (diffInHours < 24) return `${diffInHours} hrs ago`;
+    if (diffInHours < 24) {
+      if (diffInHours < 1) return "Just now";
+      return `${diffInHours} hrs ago`;
+    }
     
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays} days ago`;
-    
-    const diffInWeeks = Math.floor(diffInDays / 7);
-    if (diffInWeeks < 4) return `${diffInWeeks} weeks ago`;
-    
-    const diffInMonths = Math.floor(diffInDays / 30);
-    return `${diffInMonths} months ago`;
+    // For 24+ hours, show format like "Oct 01 6:03 AM"
+    return time.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
 
@@ -130,9 +132,9 @@ export default function HistoryPage() {
   return (
     <div className="flex h-screen bg-white">
       {/* Main Content */}
-      <div className={`flex-1 ${selectedConversation ? 'mr-96' : ''} transition-all duration-300`}>
-        <div className="p-4">
-
+      <div className="flex-1 transition-all duration-300 flex flex-col">
+        {/* Fixed Header */}
+        <div className="p-4 pb-0">
           {/* Search and Controls */}
           <div className="flex items-center justify-between mb-3 w-full">
             <div className="flex items-center gap-3">
@@ -144,7 +146,7 @@ export default function HistoryPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="pl-7 w-48 h-8 text-sm border-gray-300"
+                  className="pl-7 w-48 h-8 text-sm border-gray-300 rounded-xs"
                 />
                 {searchQuery && (
                   <Button
@@ -157,7 +159,7 @@ export default function HistoryPage() {
                   </Button>
                 )}
               </div>
-              <Button variant="outline" size="sm" onClick={clearSearch} className="border-gray-300 h-8 px-3 text-xs">
+              <Button variant="outline" size="sm" onClick={clearSearch} className="border-gray-300 h-8 px-3 text-xs font-bold rounded-xs">
                 Clear search
               </Button>
             </div>
@@ -191,7 +193,10 @@ export default function HistoryPage() {
               </div>
             </div>
           </div>
+        </div>
 
+        {/* Scrollable Table Container */}
+        <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar">
           {/* Table */}
           <div className="bg-white border border-gray-200">
             {conversations.length === 0 && !loading ? (
@@ -211,12 +216,11 @@ export default function HistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-gray-200">
-                  
-                    <TableHead className="font-medium text-gray-900 py-2 px-3 text-xs">Name</TableHead>
-                    <TableHead className="font-medium text-gray-900 py-2 px-3 text-sm">Agent</TableHead>
-                    <TableHead className="font-medium text-gray-900 py-2 px-3 text-sm">Time</TableHead>
-                    <TableHead className="font-medium text-gray-900 py-2 px-3 text-sm">Rating</TableHead>
-                    <TableHead className="font-medium text-gray-900 py-2 px-3 text-sm">Messages</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Name</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Agent</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Time</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Rating</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Messages</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -270,7 +274,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Right Sidebar - Conversation Details */}
-      <div className={`fixed right-0 top-0 h-screen w-[420px] bg-white border-l border-gray-200 shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+      <div className={`fixed right-0 top-[7rem] h-[calc(100vh-7rem)] w-[420px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${
         selectedConversation && !isClosing ? 'translate-x-0' : 'translate-x-full'
       }`}>
         {selectedConversation && (

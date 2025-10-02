@@ -48,7 +48,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
   return (
     <div 
       key={visitor.visitor_id} 
-      className="fixed right-0 top-0 h-full w-[40%] bg-gray-100 shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50"
+      className="fixed right-0 top-0 h-full w-[600px] bg-gray-100 shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50 border-l border-gray-500"
     >
       {/* Switching Overlay */}
       {isSwitchingVisitor && (
@@ -60,39 +60,41 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
         </div>
       )}
       {/* Header */}
-      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-gray-700 text-white">
+      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-[#303030] text-white">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-white">Visitor {visitor.visitor_id}</span>
+           <div className="w-6 h-6 rounded-sm bg-[#10418c] flex items-center justify-center flex-shrink-0">
+          <img 
+            src="/user.png" 
+            alt="User" 
+            className="w-4 h-4 object-contain"
+          />
+          </div>
+         
+          <span style={{ fontSize: '14px' }} className="font-medium text-white">Visitor #{visitor.visitor_id.substring(0, 8)}</span>
           {getCountryFlag(visitor.metadata?.country)}
           {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent, 'h-3 w-3')}
           {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent, 'h-3 w-3')}
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="text-xs text-white px-2 py-1">
+          <Button variant="ghost" size="sm" className="text-xs text-white px-3 py-2 bg-[#858585] rounded-none h-7 hover:text-white hover:bg-[#858585]">
             Actions
-            <ChevronDown className="h-2 w-2 ml-1" />
+            <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
           <button 
             onClick={onMinimize}
-            className={`h-5 w-5 rounded-full flex items-center justify-center ${
-              canEndChat 
-                ? 'bg-gray-600 hover:bg-gray-500' 
-                : 'bg-gray-500 hover:bg-gray-400'
-            }`}
+            className={`h-7 w-7 rounded-full flex items-center justify-center bg-[#858585]`}
             title={canEndChat ? 'Minimize chat' : 'Close chat (not assigned to you)'}
           >
-            <Minus className="h-2 w-2 text-white" />
+            <Minus className="h-3 w-3 text-white" />
           </button>
           <button 
             onClick={canEndChat ? onClose : () => {}} // Only allow closing if agent can end chat
-            className={`h-5 w-5 rounded-full flex items-center justify-center ${
-              canEndChat 
-                ? 'bg-orange-500 hover:bg-orange-600' 
-                : 'bg-gray-500 cursor-not-allowed'
+            className={`h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] ${
+              !canEndChat ? 'cursor-not-allowed' : ''
             }`}
             title={canEndChat ? 'Close chat' : 'Only the assigned agent can end this chat'}
           >
-            <X className="h-2 w-2 text-white" />
+            <X className="h-3 w-3 text-white" />
           </button>
         </div>
       </div>

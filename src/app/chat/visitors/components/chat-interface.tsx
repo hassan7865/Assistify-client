@@ -25,6 +25,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const seenMessagesRef = useRef<Set<string>>(new Set());
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { 
     chatMessages, 
     isConnected, 
@@ -33,7 +34,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     isLoadingHistory,
     currentAgent, 
     canSend,
+    hasStartedTyping,
+    setHasStartedTyping,
     sendChatMessage,
+    sendSystemMessage,
     sendTypingIndicator,
     sendMessageSeen,
     selectedVisitor
@@ -48,9 +52,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     scrollToBottom();
   }, [chatMessages]);
 
-  const handleSendMessage = () => {
+  // Focus textarea when user starts typing
+  useEffect(() => {
+    if (hasStartedTyping && textareaRef.current) {
+      textareaRef.current.focus();
+      // Set cursor position to the end of the text
+      const length = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(length, length);
+    }
+  }, [hasStartedTyping]);
+
+  const handleSendMessage = async () => {
     if (!canSend) return;
     if (chatMessage.trim()) {
+      // Check if this is the first message from the agent
+      const hasAgentMessages = chatMessages.some(msg => msg.sender === 'agent');
+      
+      if (!hasAgentMessages) {
+        // Send agent joined message first as a regular message
+        const joinedMessage = `${currentAgent?.name || 'Agent'} has joined the chat`;
+        sendChatMessage(joinedMessage);
+        // Add a longer delay to ensure the system message is sent first
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
       sendChatMessage(chatMessage);
       setChatMessage("");
       // Stop typing indicator when message is sent
@@ -73,6 +98,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!canSend) return;
     setChatMessage(e.target.value);
+    
+    // Mark that user has started typing
+    if (!hasStartedTyping) {
+      setHasStartedTyping(true);
+    }
     
     // Clear existing timeout
     if (typingTimeoutRef.current) {
@@ -126,16 +156,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="flex flex-col h-full min-h-0 gap-2 p-2">
       
+      {/* Chat Tabs */}
+      <div className="bg-gray-100 border-b border-gray-200">
+        <div className="flex w-fit bg-transparent h-auto p-0 gap-0">
+          <button className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-t border-b border-l border-r border-blue-300 rounded-none">
+            Current chat
+          </button>
+          <button className="text-xs font-bold px-2 py-1 bg-gray-100 text-gray-800 border-l border-gray-300 rounded-none">
+            Past chats (5)
+          </button>
+        </div>
+      </div>
+      
       {/* Chat Messages Area */}
-      <div className="bg-white shadow-sm flex-1 min-h-0 overflow-hidden flex flex-col">
-        {/* Agent Joined Message - Always visible at top */}
-        {visitor.agent_name && (
-          <div className="flex justify-center items-center py-2 bg-gray-50 border-b border-gray-200">
-            <div className="text-xs text-gray-500 italic">
-              Agent {visitor.agent_name} has joined
-            </div>
-          </div>
-        )}
+      <div className="bg-white shadow-sm flex-[3] min-h-0 overflow-hidden flex flex-col mt-2">
         
         {/* Messages Container */}
         <div className="flex-1 bg-gray-50 relative min-h-0">
@@ -161,6 +195,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               chatMessages.map((message, index) => {
                 const isConsecutiveFromSameSender = index > 0 && 
                   chatMessages[index - 1].sender === message.sender &&
+                  !chatMessages[index - 1].message.includes('joined') && // Exclude system messages
                   new Date(message.timestamp).getTime() - new Date(chatMessages[index - 1].timestamp).getTime() < 30000;
                 
                 const isLastMessage = index === chatMessages.length - 1;
@@ -169,27 +204,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   (nextMessage && nextMessage.sender !== message.sender) ||
                   (nextMessage && new Date(nextMessage.timestamp).getTime() - new Date(message.timestamp).getTime() >= 30000);
                 
+                // Check if this is an agent joined message
+                const isAgentJoinedMessage = message.message.includes('joined') && message.message.includes('has joined');
+                
                 return (
                   <div key={message.id} className="flex flex-col">
-                    {!isConsecutiveFromSameSender && (
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-medium ${
-                          message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
-                        }`}>
-                          {message.sender === 'agent' ? (currentAgent?.name || 'Agent') : 'Visitor'}
-                        </span>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {new Date(message.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
+                    {/* Add separator line for non-consecutive messages */}
+                    {!isConsecutiveFromSameSender && index > 0 && !isAgentJoinedMessage && (
+                      <div className="border-b border-gray-400 border-dashed my-2"></div>
                     )}
-                    <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
-                      message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
-                    }`}>
-                      {message.message}
-                    </div>
-                    {message.sender === 'agent' && (
-                      <div className="flex justify-end mt-1">
+                    
+                    {isAgentJoinedMessage ? (
+                      // Special styling for agent joined message
+                      <div className="flex justify-center items-center">
+                        <div className="text-xs text-gray-500 italic">
+                          {message.message}
+                        </div>
+                        <div className="text-xs text-gray-400 ml-2">
+                          {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {!isConsecutiveFromSameSender && (
+                          <div className="flex items-center justify-between">
+                            <span className={`text-xs font-medium ${
+                              message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
+                            }`}>
+                              {message.sender === 'agent' ? (currentAgent?.name || 'Agent') : 'Visitor'}
+                            </span>
+                            <span className="text-xs text-gray-500 ml-2">
+                              {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
+                          message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
+                        }`}>
+                          {message.message}
+                        </div>
+                      </>
+                    )}
+                    {message.sender === 'agent' && !isAgentJoinedMessage && (
+                      <div className="flex justify-end">
                         {message.seen_status == 'read' ? (
                           // Double checkmarks for read messages
                           <div className="flex">
@@ -212,9 +269,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           </svg>
                         )}
                       </div>
-                    )}
-                    {isLastInGroup && (
-                      <div className="border-b border-gray-200 border-dashed my-2"></div>
                     )}
                   </div>
                 );
@@ -251,36 +305,67 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input Area or Agent Info Card */}
       {canSend ? (
-        <div className="bg-white shadow-sm p-4">
-          <div className="relative p-4">
-            <textarea
-              value={chatMessage}
-              onChange={handleTyping}
-              onKeyPress={handleKeyPress}
-              onBlur={handleBlur}
-              placeholder="Type your message..."
-              className="w-full text-sm border-none outline-none resize-none pr-16"
-              rows={4}
-              disabled={!isConnected}
-            />
+    <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border flex-[2] min-h-[120px]">
+    <div className="relative h-full">
+      {!hasStartedTyping ? (
+        /* Initial state - show centered message with hidden textarea */
+        <div className="relative h-full w-full">
+          {/* Hidden textarea to capture typing */}
+          <textarea
+            value={chatMessage}
+            onChange={handleTyping}
+            onKeyPress={handleKeyPress}
+            onBlur={handleBlur}
+            placeholder=""
+            className="absolute inset-0 text-sm border-none outline-none resize-none p-3 h-full w-full opacity-0"
+            disabled={!isConnected}
+          />
+          {/* Centered message overlay */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
+            <span 
+              style={{ 
+                fontWeight: 100,
+                color: 'black',
+                fontSize: '16px',
+                lineHeight: 'normal',
+                padding: '10px',
+                textAlign: 'center'
+              }}
+            >
+              You're viewing this chat
+              Start typing to join the chat.
+            </span>
           </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center justify-center gap-6 mt-4">
+        </div>
+      ) : (
+        /* Typing state - show textarea with action buttons */
+        <>
+          <textarea
+            ref={textareaRef}
+            value={chatMessage}
+            onChange={handleTyping}
+            onKeyPress={handleKeyPress}
+            onBlur={handleBlur}
+            placeholder=""
+            className="text-sm border-none outline-none resize-none p-3 w-full h-full"
+            disabled={!isConnected}
+          />
+          {/* Action Buttons - positioned at bottom right */}
+          <div className="absolute bottom-2 right-2 flex items-center gap-2">
             <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
               <Smile className="h-4 w-4" />
-              <span>Emoji</span>
             </button>
             <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
               <ThumbsUp className="h-4 w-4" />
-              <span>Rating</span>
             </button>
             <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
               <Paperclip className="h-4 w-4" />
-              <span>Attach</span>
             </button>
           </div>
-        </div>
+        </>
+      )}
+    </div>
+  </div>
       ) : (
         <div className="bg-white shadow-sm p-4">
           <div className="flex items-center justify-center py-8">

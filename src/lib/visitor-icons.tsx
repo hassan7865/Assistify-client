@@ -43,6 +43,54 @@ const countryCodeMap: { [key: string]: string } = {
   'kiribati': 'KI', 'tuvalu': 'TV', 'nauru': 'NR'
 };
 
+// Reverse mapping from country codes to full names
+const countryNameMap: { [key: string]: string } = {
+  'PK': 'Pakistan', 'US': 'United States', 'CA': 'Canada', 'GB': 'United Kingdom',
+  'DE': 'Germany', 'FR': 'France', 'IN': 'India', 'CN': 'China', 'JP': 'Japan',
+  'AU': 'Australia', 'BR': 'Brazil', 'RU': 'Russia', 'ES': 'Spain', 'IT': 'Italy',
+  'NL': 'Netherlands', 'SE': 'Sweden', 'NO': 'Norway', 'DK': 'Denmark',
+  'FI': 'Finland', 'PL': 'Poland', 'TR': 'Turkey', 'KR': 'South Korea',
+  'TH': 'Thailand', 'SG': 'Singapore', 'MY': 'Malaysia', 'ID': 'Indonesia',
+  'PH': 'Philippines', 'VN': 'Vietnam', 'MX': 'Mexico', 'AR': 'Argentina',
+  'CL': 'Chile', 'CO': 'Colombia', 'PE': 'Peru', 'ZA': 'South Africa',
+  'EG': 'Egypt', 'NG': 'Nigeria', 'KE': 'Kenya', 'MA': 'Morocco',
+  'IL': 'Israel', 'SA': 'Saudi Arabia', 'AE': 'United Arab Emirates', 'IR': 'Iran',
+  'IQ': 'Iraq', 'AF': 'Afghanistan', 'BD': 'Bangladesh', 'LK': 'Sri Lanka',
+  'NP': 'Nepal', 'BT': 'Bhutan', 'MM': 'Myanmar', 'KH': 'Cambodia',
+  'LA': 'Laos', 'MN': 'Mongolia', 'KZ': 'Kazakhstan', 'UZ': 'Uzbekistan',
+  'KG': 'Kyrgyzstan', 'TJ': 'Tajikistan', 'TM': 'Turkmenistan',
+  'AZ': 'Azerbaijan', 'AM': 'Armenia', 'GE': 'Georgia', 'UA': 'Ukraine',
+  'BY': 'Belarus', 'MD': 'Moldova', 'RO': 'Romania', 'BG': 'Bulgaria',
+  'GR': 'Greece', 'AL': 'Albania', 'MK': 'Macedonia', 'ME': 'Montenegro',
+  'BA': 'Bosnia', 'HR': 'Croatia', 'SI': 'Slovenia', 'SK': 'Slovakia',
+  'CZ': 'Czech Republic', 'HU': 'Hungary', 'AT': 'Austria', 'CH': 'Switzerland',
+  'BE': 'Belgium', 'LU': 'Luxembourg', 'IE': 'Ireland', 'PT': 'Portugal',
+  'IS': 'Iceland', 'EE': 'Estonia', 'LV': 'Latvia', 'LT': 'Lithuania',
+  'NZ': 'New Zealand', 'FJ': 'Fiji', 'PG': 'Papua New Guinea',
+  'SB': 'Solomon Islands', 'VU': 'Vanuatu', 'WS': 'Samoa', 'TO': 'Tonga',
+  'PW': 'Palau', 'FM': 'Micronesia', 'MH': 'Marshall Islands',
+  'KI': 'Kiribati', 'TV': 'Tuvalu', 'NR': 'Nauru'
+};
+
+/**
+ * Get country name from country code or name
+ * @param country - Country code or name
+ * @returns Full country name
+ */
+export const getCountryName = (country?: string): string => {
+  if (!country) return 'Unknown Country';
+  
+  const countryUpper = country.toUpperCase();
+  
+  // If it's already a full name (more than 2 characters), return as is
+  if (country.length > 2) {
+    return country;
+  }
+  
+  // If it's a 2-letter code, convert to full name
+  return countryNameMap[countryUpper] || country;
+};
+
 /**
  * Get country flag component
  * @param country - Country name or code
@@ -85,11 +133,11 @@ export const getBrowserIcon = (
 ) => {
   const browserLower = browser?.toLowerCase() || userAgent?.toLowerCase() || '';
   
-  if (browserLower.includes('chrome')) return <FaChrome className={`${size} text-blue-500`} />;
-  if (browserLower.includes('firefox')) return <FaFirefox className={`${size} text-orange-500`} />;
-  if (browserLower.includes('safari')) return <FaSafari className={`${size} text-blue-600`} />;
-  if (browserLower.includes('edge')) return <FaEdge className={`${size} text-blue-700`} />;
-  if (browserLower.includes('opera')) return <FaOpera className={`${size} text-red-500`} />;
+  if (browserLower.includes('chrome')) return <FaChrome className={`${size} text-gray-500`} />;
+  if (browserLower.includes('firefox')) return <FaFirefox className={`${size} text-gray-500`} />;
+  if (browserLower.includes('safari')) return <FaSafari className={`${size} text-gray-500`} />;
+  if (browserLower.includes('edge')) return <FaEdge className={`${size} text-gray-500`} />;
+  if (browserLower.includes('opera')) return <FaOpera className={`${size} text-gray-500`} />;
   return null;
 };
 
@@ -107,12 +155,12 @@ export const getOSIcon = (
 ) => {
   const osLower = os?.toLowerCase() || userAgent?.toLowerCase() || '';
   
-  if (osLower.includes('windows')) return <FaWindows className={`${size} text-blue-500`} />;
-  if (osLower.includes('mac') || osLower.includes('macos')) return <FaApple className={`${size} text-gray-600`} />;
-  if (osLower.includes('ubuntu')) return <FaUbuntu className={`${size} text-orange-500`} />;
-  if (osLower.includes('linux')) return <FaLinux className={`${size} text-orange-500`} />;
-  if (osLower.includes('android')) return <FaAndroid className={`${size} text-green-500`} />;
-  if (osLower.includes('ios')) return <FaApple className={`${size} text-gray-700`} />;
+  if (osLower.includes('windows')) return <FaWindows className={`${size} text-gray-500`} />;
+  if (osLower.includes('mac') || osLower.includes('macos')) return <FaApple className={`${size} text-gray-500`} />;
+  if (osLower.includes('ubuntu')) return <FaUbuntu className={`${size} text-gray-500`} />;
+  if (osLower.includes('linux')) return <FaLinux className={`${size} text-gray-500`} />;
+  if (osLower.includes('android')) return <FaAndroid className={`${size} text-gray-500`} />;
+  if (osLower.includes('ios')) return <FaApple className={`${size} text-gray-500`} />;
   return null;
 };
 

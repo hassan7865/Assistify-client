@@ -7,7 +7,7 @@ import { Visitor } from "../../types";
 
 export const useVisitors = () => {
   const { user } = useAuth();
-  const { openChat, setCurrentAgent, minimizedChats } = useGlobalChat();
+  const { openChat, setCurrentAgent, minimizedChats, closeMinimizedChat, removeVisitorChatState } = useGlobalChat();
   
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [pendingVisitors, setPendingVisitors] = useState<Visitor[]>([]);
@@ -71,6 +71,18 @@ export const useVisitors = () => {
       
       const allVisitors = [...filteredPendingVisitors, ...filteredActiveVisitors];
       setVisitors(allVisitors);
+
+      // Clean up minimized chats and visitor map for visitors no longer in pending/active status
+      const validVisitorIds = new Set(allVisitors.map(visitor => visitor.visitor_id));
+      
+      // Remove minimized chats for visitors not in the current list
+      minimizedChats.forEach(minimizedChat => {
+        if (!validVisitorIds.has(minimizedChat.visitor_id)) {
+          // This visitor is no longer pending or active, remove from minimized chats and visitor map
+          closeMinimizedChat(minimizedChat.visitor_id);
+          removeVisitorChatState(minimizedChat.visitor_id);
+        }
+      });
 
     } catch (error) {
       console.error('Failed to fetch visitors:', error);

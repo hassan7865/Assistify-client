@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ChevronDown, ChevronUp, MessageCircle, Search } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from "@/lib/utils";
 import { 
   getCountryFlag, 
@@ -10,7 +11,8 @@ import {
   getOnlineStatus, 
   getReferrerDisplay, 
   getMessageCount, 
-  getStatusColor 
+  getStatusColor,
+  getCountryName
 } from '@/lib/visitor-icons';
 import { Visitor } from '../../types';
 
@@ -80,55 +82,53 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
     }
   };
 
-
-
-
-
-  // Sort groups by visitor count (descending) except for Activity
-  const sortedGroups = Object.entries(groupedVisitors).sort(([, a], [, b]) => {
-    if (groupBy === 'Activity') {
-      // For Activity, show incoming first, then served
-      return a[0]?.agent_id ? 1 : -1;
-    }
-    return b.length - a.length;
-  });
+  // Filter out empty groups and sort by visitor count (descending) except for Activity
+  const sortedGroups = Object.entries(groupedVisitors)
+    .filter(([, visitors]) => visitors.length > 0) // Only show groups with visitors
+    .sort(([, a], [, b]) => {
+      if (groupBy === 'Activity') {
+        // For Activity, show incoming first, then served
+        return a[0]?.agent_id ? 1 : -1;
+      }
+      return b.length - a.length;
+    });
 
   // Check if there are any visitors at all
   const totalVisitors = Object.values(groupedVisitors).flat().length;
   
   if (totalVisitors === 0) {
     return (
-      <div className="text-center py-8 text-gray-500 text-xs">
+      <div className="text-center py-8 text-gray-500 text-sm">
         No visitors at the moment
       </div>
     );
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {sortedGroups.map(([groupKey, visitors]) => {
         const isExpanded = expandedGroups.has(groupKey);
         
         return (
-          <div key={groupKey} className="border border-gray-200 rounded">
+          <div key={groupKey} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
             {/* Group Header */}
             <div 
-              className="flex items-center justify-between px-3 py-2 bg-white hover:bg-gray-50 cursor-pointer border-b border-gray-200"
+              className="flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
               onClick={() => toggleGroup(groupKey)}
             >
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full bg-white border border-gray-300 flex items-center justify-center">
                   {isExpanded ? (
-                    <ChevronUp className="w-3 h-3 text-gray-600" />
+                    <ChevronUp className="w-3.5 h-3.5 text-gray-600" />
                   ) : (
-                    <ChevronDown className="w-3 h-3 text-gray-600" />
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-600" />
                   )}
                 </div>
-                <span className="text-xs font-medium text-gray-900">
+                <span className="text-sm font-semibold text-gray-900">
                   {getGroupDisplayName(groupKey, visitors)}
                 </span>
               </div>
-              <span className="text-xs text-gray-500">
+              <span className="text-sm text-gray-600 font-medium">
                 Visitors: {visitors.length}
               </span>
             </div>
@@ -137,61 +137,129 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
             {isExpanded && (
               <div className="bg-white">
                 {/* Table Headers */}
-                <div className="flex items-center gap-3 px-3 py-1 border-b border-gray-200 bg-gray-50">
-                  <div className="w-20 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Visitor</div>
-                  <div className="w-32 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Online</div>
-                  <div className="w-32 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Referrer</div>
-                  <div className="w-24 text-xs font-medium text-gray-600 uppercase tracking-wider text-center" style={{ fontSize: '0.65rem' }}>Served by</div>
-                  <div className="w-12 text-xs font-medium text-gray-600 uppercase tracking-wider" style={{ fontSize: '0.65rem' }}>Messages</div>
-                </div>
+                 <div className="flex items-center gap-4 px-5 py-3 border-b border-gray-200 bg-gray-50">
+                   <div className="w-32 text-xs font-semibold text-gray-700">Visitor</div>
+                   <div className="w-20"></div>
+                   <div className="w-32 text-xs font-semibold text-gray-700 text-center">Online</div>
+                   <div className="w-40 text-xs font-semibold text-gray-700">Referrer</div>
+                   <div className="w-28 text-xs font-semibold text-gray-700 text-center">Served by</div>
+                   <div className="flex-1 text-xs font-semibold text-gray-700">Messages</div>
+                 </div>
 
                 {/* Visitor Rows */}
                 <div className="divide-y divide-gray-100">
                   {visitors.map((visitor) => (
                     <div
                       key={visitor.visitor_id}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
                       onClick={() => onVisitorClick(visitor)}
                     >
                       {/* Visitor */}
-                      <div className="w-20 flex items-center gap-1">
+                      <div className="w-32 flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full flex-shrink-0", getStatusColor(visitor))} />
-                        <MessageCircle className="h-3 w-3 text-gray-600 flex-shrink-0" />
-                        <span className="text-xs font-medium text-gray-900 truncate">
-                          #{visitor.visitor_id.substring(0, 8)}
-                        </span>
+                        <MessageCircle className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs font-medium text-gray-900 truncate cursor-pointer">
+                              #{visitor.visitor_id.substring(0, 8)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p className="max-w-xs break-all">
+                              Visitor ID: {visitor.visitor_id}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      
+                      {/* Icons */}
+                      <div className="w-20 flex items-center justify-center gap-1.5">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center">
+                              {getCountryFlag(visitor.metadata?.country)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p>{getCountryName(visitor.metadata?.country)}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center">
+                              {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p>{visitor.metadata?.os || 'Unknown OS'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center">
+                              {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p>{visitor.metadata?.browser || 'Unknown Browser'}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       
                       {/* Online */}
-                      <div className="w-32 flex items-center gap-1">
-                        <span className="text-xs text-gray-600">{getOnlineStatus(visitor.started_at)}</span>
-                        <div className="flex items-center gap-1">
-                          {getCountryFlag(visitor.metadata?.country)}
-                          {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent)}
-                          {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent)}
-                        </div>
+                      <div className="w-32 flex items-center justify-center">
+                        <span className="text-xs text-gray-900">{getOnlineStatus(visitor.started_at)}</span>
                       </div>
                       
                       {/* Referrer */}
-                      <div className="w-32 flex items-center gap-1">
-                        <Search className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-600 truncate">
-                          {getReferrerDisplay(visitor.metadata?.referrer)}
-                        </span>
+                      <div className="w-40 flex items-center gap-2">
+                        <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                             <span className="text-xs text-gray-700 truncate cursor-pointer">
+                               {getReferrerDisplay(visitor.metadata?.referrer)}
+                             </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p className="max-w-xs break-all">
+                              {visitor.metadata?.referrer || 'No referrer'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       
                       {/* Served by */}
-                      <div className="w-24 flex items-center justify-center">
-                        <span className="text-xs text-gray-600 truncate">
-                          {visitor.agent_name || 'Unassigned'}
-                        </span>
+                      <div className="w-28 flex items-center justify-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                             <span className="text-xs text-gray-700 truncate cursor-pointer">
+                               {visitor.agent_name || 'Unassigned'}
+                             </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p>
+                              {visitor.agent_name ? `Agent: ${visitor.agent_name}` : 'No agent assigned'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       
                       {/* Last Message */}
                       <div className="flex-1 min-w-0">
-                        <span className="text-xs text-gray-600 truncate block">
-                          {visitor.last_message?.content || 'No messages yet'}
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                             <span className="text-xs text-gray-700 truncate block cursor-pointer">
+                               {visitor.last_message?.content || 'No messages yet'}
+                             </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p className="max-w-xs break-words">
+                              {visitor.last_message?.content || 'No messages yet'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}

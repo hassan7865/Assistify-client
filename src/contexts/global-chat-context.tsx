@@ -67,6 +67,7 @@ interface GlobalChatContextType {
   showEndChatDialog: boolean;
   isSwitchingVisitor: boolean;
   canSend: boolean;
+  hasStartedTyping: boolean;
   
   // Minimized Chats State
   minimizedChats: Visitor[];
@@ -85,13 +86,17 @@ interface GlobalChatContextType {
   minimizeChat: () => void;
   maximizeChat: (visitorId: string) => void;
   closeMinimizedChat: (visitorId: string) => void;
+  removeVisitorChatState: (visitorId: string) => void;
+  updateMinimizedChatUnread: (visitorId: string, hasUnreadMessages: boolean) => void;
   
   // End Chat Dialog Actions
   setShowEndChatDialog: (show: boolean) => void;
+  setHasStartedTyping: (hasStarted: boolean) => void;
   handleEndChat: () => void;
   
   // Chat Message Actions
   sendChatMessage: (message: string) => void;
+  sendSystemMessage: (message: string) => void;
   sendTypingIndicator: (isTyping: boolean) => void;
   sendMessageSeen: (messageId: string) => void;
   
@@ -107,9 +112,11 @@ type ChatAction =
   | { type: 'SET_END_CHAT_DIALOG'; payload: boolean }
   | { type: 'SET_SWITCHING_VISITOR'; payload: boolean }
   | { type: 'SET_ENDING_CHAT'; payload: boolean }
+  | { type: 'SET_HAS_STARTED_TYPING'; payload: boolean }
   | { type: 'SET_MINIMIZED_CHATS'; payload: Visitor[] }
   | { type: 'ADD_MINIMIZED_CHAT'; payload: Visitor }
   | { type: 'REMOVE_MINIMIZED_CHAT'; payload: string }
+  | { type: 'UPDATE_MINIMIZED_CHAT_UNREAD'; payload: { visitorId: string; hasUnreadMessages: boolean } }
   | { type: 'UPDATE_VISITOR_CHAT_STATE'; payload: { visitorId: string; updates: Partial<VisitorChatState> } }
   | { type: 'REMOVE_VISITOR_CHAT_STATE'; payload: string }
   | { type: 'ADD_MESSAGE'; payload: { visitorId: string; message: ChatMessage } }
@@ -122,6 +129,7 @@ interface ChatState {
   showEndChatDialog: boolean;
   isSwitchingVisitor: boolean;
   isEndingChat: boolean;
+  hasStartedTyping: boolean;
   minimizedChats: Visitor[];
   visitorChatStates: Map<string, VisitorChatState>;
 }
@@ -132,6 +140,7 @@ const initialState: ChatState = {
   showEndChatDialog: false,
   isSwitchingVisitor: false,
   isEndingChat: false,
+  hasStartedTyping: false,
   minimizedChats: [],
   visitorChatStates: new Map(),
 };
@@ -164,6 +173,9 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_ENDING_CHAT':
       return { ...state, isEndingChat: action.payload };
     
+    case 'SET_HAS_STARTED_TYPING':
+      return { ...state, hasStartedTyping: action.payload };
+    
     case 'SET_MINIMIZED_CHATS':
       return { ...state, minimizedChats: action.payload };
     
@@ -172,13 +184,36 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         minimizedChats: state.minimizedChats.some(chat => chat.visitor_id === action.payload.visitor_id)
           ? state.minimizedChats
-          : [...state.minimizedChats, action.payload]
+          : [...state.minimizedChats, { ...action.payload, hasUnreadMessages: false } as Visitor]
       };
     
     case 'REMOVE_MINIMIZED_CHAT':
       return {
         ...state,
         minimizedChats: state.minimizedChats.filter(chat => chat.visitor_id !== action.payload)
+      };
+    
+    case 'UPDATE_MINIMIZED_CHAT_UNREAD':
+      return {
+        ...state,
+        minimizedChats: state.minimizedChats.map(chat => {
+          if (chat.visitor_id === action.payload.visitorId) {
+            // If we're setting to true, only do it if the chat is minimized and not currently selected
+            if (action.payload.hasUnreadMessages) {
+              const isMinimized = state.minimizedChats.some(c => c.visitor_id === action.payload.visitorId);
+              const isCurrentlySelected = state.selectedVisitor?.visitor_id === action.payload.visitorId;
+              
+              if (isMinimized && !isCurrentlySelected) {
+                return { ...chat, hasUnreadMessages: true } as Visitor;
+              }
+              return chat;
+            } else {
+              // If we're setting to false, always do it (for clearing unread status)
+              return { ...chat, hasUnreadMessages: false } as Visitor;
+            }
+          }
+          return chat;
+        })
       };
     
     case 'UPDATE_VISITOR_CHAT_STATE': {
@@ -500,6 +535,13 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
 
         // Auto-mark visitor messages as seen
         if (data.sender_type === 'visitor') {
+          // Mark minimized chat as having unread messages if it's minimized and not currently selected
+          // We need to check the current state to see if it's minimized and not selected
+          dispatch({
+            type: 'UPDATE_MINIMIZED_CHAT_UNREAD',
+            payload: { visitorId: visitor.visitor_id, hasUnreadMessages: true }
+          });
+          
           setTimeout(() => {
             sendMessageSeen(newMessage.id);
           }, 100);
@@ -624,6 +666,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     dispatch({ type: 'SET_CHAT_OPEN', payload: true });
     dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
     dispatch({ type: 'SET_SWITCHING_VISITOR', payload: false });
+    dispatch({ type: 'SET_HAS_STARTED_TYPING', payload: false });
 
     // Set agent if needed
     if (visitor.agent_id && visitor.agent_name && !currentAgent) {
@@ -670,6 +713,9 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     dispatch({ type: 'SET_CHAT_OPEN', payload: true });
     dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
 
+    // Clear unread messages when maximizing the chat
+    updateMinimizedChatUnread(visitorId, false);
+
       if (visitor.agent_id && visitor.agent_name && !currentAgent) {
         setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
       }
@@ -683,6 +729,14 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     dispatch({ type: 'SET_CHAT_OPEN', payload: true });
     dispatch({ type: 'SET_END_CHAT_DIALOG', payload: true });
   }, [state.minimizedChats]);
+
+  const removeVisitorChatState = useCallback((visitorId: string) => {
+    dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: visitorId });
+  }, []);
+
+  const updateMinimizedChatUnread = useCallback((visitorId: string, hasUnreadMessages: boolean) => {
+    dispatch({ type: 'UPDATE_MINIMIZED_CHAT_UNREAD', payload: { visitorId, hasUnreadMessages } });
+  }, []);
 
   const handleEndChat = useCallback(() => {
     if (!state.selectedVisitor || !currentAgent?.id) return;
@@ -733,6 +787,17 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       timestamp: new Date().toISOString()
     });
   }, [state.selectedVisitor, currentAgent]);
+
+  const sendSystemMessage = useCallback((message: string) => {
+    if (!message.trim() || !state.selectedVisitor) return;
+    
+    wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
+      type: 'chat_message',
+      message: message.trim(),
+      sender_type: 'system',
+      timestamp: new Date().toISOString()
+    });
+  }, [state.selectedVisitor]);
 
   const sendTypingIndicator = useCallback((isTyping: boolean) => {
     if (!state.selectedVisitor || state.selectedVisitor.agent_id !== currentAgent?.id) return;
@@ -847,6 +912,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       currentAgent?.id && 
       state.selectedVisitor.agent_id === currentAgent.id
     ),
+    hasStartedTyping: state.hasStartedTyping,
     minimizedChats: state.minimizedChats,
     
     // WebSocket state for current visitor
@@ -867,11 +933,17 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     minimizeChat,
     maximizeChat,
     closeMinimizedChat,
+    removeVisitorChatState,
+    updateMinimizedChatUnread,
     setShowEndChatDialog: (show: boolean) => {
       dispatch({ type: 'SET_END_CHAT_DIALOG', payload: show });
     },
+    setHasStartedTyping: (hasStarted: boolean) => {
+      dispatch({ type: 'SET_HAS_STARTED_TYPING', payload: hasStarted });
+    },
     handleEndChat,
     sendChatMessage,
+    sendSystemMessage,
     sendTypingIndicator,
     sendMessageSeen,
     currentAgent,
@@ -890,8 +962,11 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     minimizeChat,
     maximizeChat,
     closeMinimizedChat,
+    removeVisitorChatState,
+    updateMinimizedChatUnread,
     handleEndChat,
     sendChatMessage,
+    sendSystemMessage,
     sendTypingIndicator,
     sendMessageSeen,
   ]);

@@ -31,31 +31,31 @@ export default function PersonalizePage() {
           <TabsList className="flex w-fit bg-transparent h-auto p-0 gap-0">
             <TabsTrigger 
               value="profile" 
-              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-t border-l border-r border-blue-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 relative min-w-fit"
+              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-t border-l border-r border-blue-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 relative min-w-fit cursor-pointer"
             >
               Profile
             </TabsTrigger>
             <TabsTrigger 
               value="sounds" 
-              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit"
+              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit cursor-pointer"
             >
               Sounds & notifications
             </TabsTrigger>
             <TabsTrigger 
               value="timeout" 
-              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit"
+              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit cursor-pointer"
             >
               Idle timeout
             </TabsTrigger>
             <TabsTrigger 
               value="reports" 
-              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit"
+              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit cursor-pointer"
             >
               Email reports
             </TabsTrigger>
             <TabsTrigger 
               value="labs" 
-              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit"
+              className="text-xs font-bold px-2 py-1 bg-white text-gray-800 border-l border-gray-300 rounded-none data-[state=active]:bg-blue-100 data-[state=active]:text-gray-800 data-[state=active]:border-blue-300 min-w-fit cursor-pointer"
             >
               Labs
             </TabsTrigger>

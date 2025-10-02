@@ -1,5 +1,4 @@
 import {
-  Geist,
   Geist_Mono,
   Instrument_Sans,
   Inter,
@@ -9,11 +8,7 @@ import {
 
 import { cn } from '@/lib/utils';
 
-const fontSans = Geist({
-  subsets: ['latin'],
-  variable: '--font-sans'
-});
-
+// Using system-ui as the primary font - no need to import from Google Fonts
 const fontMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-mono'
@@ -40,7 +35,6 @@ const fontInter = Inter({
 });
 
 export const fontVariables = cn(
-  fontSans.variable,
   fontMono.variable,
   fontInstrument.variable,
   fontNotoMono.variable,

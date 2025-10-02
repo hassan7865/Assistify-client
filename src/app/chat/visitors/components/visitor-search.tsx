@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FiSearch, FiRefreshCw, FiX, FiChevronDown } from 'react-icons/fi';
+import { FiSearch, FiRefreshCw, FiX, FiChevronDown, FiChevronsDown } from 'react-icons/fi';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,21 +58,27 @@ const VisitorSearch: React.FC<VisitorSearchProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
   return (
     <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+         {/* Circular icon button */}
+         <button className="w-7 h-7 rounded-full border-2 border-blue-400 bg-blue-50 flex items-center justify-center hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+           <FiChevronsDown className="w-4 h-4" />
+         </button>
+        
         {/* Group by dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-gray-800 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors min-w-[160px] justify-between"
           >
-            Group by {groupBy}
-            <FiChevronDown className={cn("w-3 h-3 transition-transform", isDropdownOpen && "rotate-180")} />
+            <span>Group by {groupBy}</span>
+            <FiChevronDown className={cn("w-4 h-4 text-gray-600 transition-transform duration-200", isDropdownOpen && "rotate-180")} />
           </button>
           
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded shadow-lg z-10 min-w-40">
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded shadow-lg z-10 min-w-[160px]">
               {groupByOptions.map((option) => (
                 <button
                   key={option}
