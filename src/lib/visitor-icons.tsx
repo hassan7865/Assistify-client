@@ -240,14 +240,14 @@ export const getMessageCount = (visitor: { message_count?: number }) => {
 export const getStatusIcon = (visitor: { status?: string; agent_id?: string }) => {
   if (visitor.status === 'active') {
     return (
-      <div className="w-6 h-6 bg-lime-500 rounded-sm flex items-center justify-center">
+      <div className="w-5 h-5 bg-lime-500 rounded-sm flex items-center justify-center">
         <MessageSquareMore className="w-4 h-4 text-white" />
       </div>
     );
   }
   if (visitor.status === 'pending') {
     return (
-      <div className="w-6 h-6 bg-red-500 rounded-sm flex items-center justify-center">
+      <div className="w-5 h-5 bg-[#cd3642] rounded-sm flex items-center justify-center">
         <BsExclamation className="w-4 h-4 text-white" />
       </div>
     );

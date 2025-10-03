@@ -14,6 +14,7 @@ import React, {
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 import { API_BASE_URL } from '@/lib/axios';
 import api from '@/lib/axios';
+import { ChatStorage, StoredMinimizedChat } from '@/lib/storage';
 
 // Types
 interface Visitor {
@@ -23,6 +24,7 @@ interface Visitor {
   agent_name?: string;
   started_at?: string;
   session_id?: string;
+  hasUnreadMessages?: boolean;
   metadata?: {
     name?: string;
     email?: string;
@@ -402,6 +404,30 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   // WebSocket manager instance
   const wsManagerRef = useRef(new WebSocketManager());
   
+  // Load minimized chats from localStorage on mount
+  useEffect(() => {
+    if (ChatStorage.isAvailable()) {
+      const storedChats = ChatStorage.loadMinimizedChats();
+      if (storedChats.length > 0) {
+        // Convert stored chats back to Visitor format
+        const visitors: Visitor[] = storedChats.map(storedChat => ({
+          visitor_id: storedChat.visitor_id,
+          status: storedChat.status,
+          agent_id: storedChat.agent_id,
+          agent_name: storedChat.agent_name,
+          session_id: storedChat.session_id,
+          metadata: storedChat.metadata,
+          hasUnreadMessages: storedChat.hasUnreadMessages
+        } as Visitor));
+        
+        dispatch({ type: 'SET_MINIMIZED_CHATS', payload: visitors });
+      }
+      
+      // Clean up old data
+      ChatStorage.cleanup();
+    }
+  }, []);
+  
   // Update refs when state changes
   useEffect(() => {
     currentAgentRef.current = currentAgent;
@@ -410,6 +436,26 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // Persist minimized chats to localStorage whenever they change
+  useEffect(() => {
+    if (ChatStorage.isAvailable() && state.minimizedChats.length >= 0) {
+      // Convert Visitor format to StoredMinimizedChat format
+      const storedChats: StoredMinimizedChat[] = state.minimizedChats.map(visitor => ({
+        visitor_id: visitor.visitor_id,
+        visitor_name: visitor.metadata?.name,
+        agent_name: visitor.agent_name,
+        status: visitor.status,
+        hasUnreadMessages: visitor.hasUnreadMessages,
+        session_id: visitor.session_id,
+        agent_id: visitor.agent_id,
+        metadata: visitor.metadata,
+        timestamp: new Date().toISOString()
+      }));
+      
+      ChatStorage.saveMinimizedChats(storedChats);
+    }
+  }, [state.minimizedChats]);
 
   // API call manager with abort controllers
   const activeRequestsRef = useRef(new Map<string, AbortController>());
@@ -733,6 +779,10 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const removeVisitorChatState = useCallback((visitorId: string) => {
     dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: visitorId });
+    // Also remove from localStorage
+    if (ChatStorage.isAvailable()) {
+      ChatStorage.removeMinimizedChat(visitorId);
+    }
   }, []);
 
   const updateMinimizedChatUnread = useCallback((visitorId: string, hasUnreadMessages: boolean) => {

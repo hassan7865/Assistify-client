@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, User, Loader2, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, ChevronLeft, ChevronRight, User, Loader2, MessageCircle, ChevronDown } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import HistorySidebar from './components/history-sidebar';
+import SearchDropdown, { SearchFilters } from './components/search-dropdown';
 import { useChatHistory, ChatConversation } from './hooks/use-chat-history';
 import { useAuth } from '@/contexts/auth-context';
 import { getConversationVisitorName, getConversationAgentName } from '../types';
@@ -23,6 +24,15 @@ export default function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  
+  const [filters, setFilters] = useState<SearchFilters>({
+    searchQuery: "",
+    minMessageCount: 0,
+    chatStatus: 'all',
+    assignmentStatus: 'all'
+  });
   
   const {
     conversations,
@@ -44,13 +54,72 @@ export default function HistoryPage() {
   };
 
   const handleSearch = () => {
-    // Implement search functionality if needed
-    // For now, just reset to first page
+    // Apply filters and search
+    applyFilters();
+  };
+
+  const applyFilters = () => {
+    const filterParams: any = {
+      page: 1,
+      page_size: pagination.page_size,
+    };
+
+    if (filters.searchQuery) {
+      filterParams.search_query = filters.searchQuery;
+    }
+    if (filters.chatStatus !== 'all') {
+      filterParams.status_filter = filters.chatStatus.toUpperCase();
+    }
+    if (filters.assignmentStatus === 'assigned') {
+      filterParams.agent_id = 'assigned'; // Special flag for assigned chats
+    } else if (filters.assignmentStatus === 'unassigned') {
+      filterParams.agent_id = 'unassigned'; // Special flag for unassigned chats
+    }
+    if (filters.dateFrom) {
+      filterParams.date_from = filters.dateFrom;
+    }
+    if (filters.dateTo) {
+      filterParams.date_to = filters.dateTo;
+    }
+    if (filters.minMessageCount > 0) {
+      filterParams.min_message_count = filters.minMessageCount;
+    }
+
+    fetchChatHistory(filterParams);
+    setShowFilters(false);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      searchQuery: "",
+      minMessageCount: 0,
+      chatStatus: 'all',
+      assignmentStatus: 'all'
+    });
+    setSearchQuery("");
+    setShowFilters(false);
     fetchChatHistory({
       page: 1,
       page_size: pagination.page_size,
     });
   };
+
+  // Close filters when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setShowFilters(false);
+      }
+    };
+
+    if (showFilters) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFilters]);
 
   const handleRowClick = (conversation: ChatConversation) => {
     if (selectedConversation?._id === conversation._id) {
@@ -121,7 +190,7 @@ export default function HistoryPage() {
       <div className="flex h-screen bg-gray-50 items-center justify-center">
         <div className="text-center">
           <p className="mb-4">Error loading chat history: {error}</p>
-          <Button onClick={() => fetchChatHistory({ page: 1, page_size: 20 })}>
+          <Button className='bg-blue-600 hover:bg-blue-700 rounded-xs' onClick={() => fetchChatHistory({ page: 1, page_size: 20 })}>
             Retry
           </Button>
         </div>
@@ -132,31 +201,56 @@ export default function HistoryPage() {
   return (
     <div className="flex h-screen bg-white">
       {/* Main Content */}
-      <div className="flex-1 transition-all duration-300 flex flex-col">
+      <div className="flex-1 flex flex-col">
         {/* Fixed Header */}
         <div className="p-4 pb-0">
           {/* Search and Controls */}
           <div className="flex items-center justify-between mb-3 w-full">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
-                <Input
-                  type="text"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="pl-7 w-48 h-8 text-sm border-gray-300 rounded-xs"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearSearch}
-                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-5 w-5 p-0"
-                  >
-                    ×
-                  </Button>
+            <div className="flex items-center gap-3 relative">
+              <div className="relative flex" ref={filterRef}>
+                {/* Dropdown Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="h-8 w-8 p-0 border-r-0 rounded-r-none border-gray-300 bg-gray-50 hover:bg-gray-100"
+                >
+                  <ChevronDown className="w-3 h-3 text-gray-600" />
+                </Button>
+                
+                {/* Search Input */}
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="w-48 h-8 text-sm border-gray-300 rounded-l-none pl-3 pr-7"
+                  />
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSearch}
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-5 w-5 p-0"
+                    >
+                      ×
+                    </Button>
+                  )}
+                </div>
+                
+                {/* Filter Dropdown */}
+                {showFilters && (
+                  <div className="absolute top-full left-0 mt-1 z-50">
+                    <SearchDropdown
+                      filters={filters}
+                      onFiltersChange={setFilters}
+                      onApplyFilters={applyFilters}
+                      onClearFilters={clearFilters}
+                      isLoading={loading}
+                    />
+                  </div>
                 )}
               </div>
               <Button variant="outline" size="sm" onClick={clearSearch} className="border-gray-300 h-8 px-3 text-xs font-bold rounded-xs">
@@ -271,19 +365,19 @@ export default function HistoryPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Right Sidebar - Conversation Details */}
-      <div className={`fixed right-0 top-[7rem] h-[calc(100vh-7rem)] w-[420px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${
-        selectedConversation && !isClosing ? 'translate-x-0' : 'translate-x-full'
-      }`}>
-        {selectedConversation && (
-          <HistorySidebar 
-            conversation={selectedConversation} 
-            onClose={closeConversationDetails}
-            isClosing={isClosing}
-          />
-        )}
+        {/* Right Sidebar - Conversation Details */}
+        <div className={`fixed right-0 top-[7rem] h-[calc(100vh-7rem)] w-[420px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${
+          selectedConversation && !isClosing ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+          {selectedConversation && (
+            <HistorySidebar 
+              conversation={selectedConversation} 
+              onClose={closeConversationDetails}
+              isClosing={isClosing}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

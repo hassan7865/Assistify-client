@@ -64,6 +64,10 @@ export interface ChatHistoryFilters {
   agent_id?: string;
   visitor_id?: string;
   search_query?: string;
+  status_filter?: string;
+  date_from?: string;
+  date_to?: string;
+  min_message_count?: number;
 }
 
 export const useChatHistory = () => {
@@ -98,6 +102,18 @@ export const useChatHistory = () => {
       if (filters.visitor_id) {
         params.append('visitor_id', filters.visitor_id);
       }
+      if (filters.status_filter) {
+        params.append('status_filter', filters.status_filter);
+      }
+      if (filters.date_from) {
+        params.append('date_from', filters.date_from);
+      }
+      if (filters.date_to) {
+        params.append('date_to', filters.date_to);
+      }
+        if (filters.min_message_count !== undefined) {
+          params.append('min_message_count', filters.min_message_count.toString());
+        }
 
       const response = await api.get(`/chat/history/${user.client_id}?${params}`);
       
