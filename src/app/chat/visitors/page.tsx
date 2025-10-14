@@ -54,9 +54,21 @@ const VisitorPage = () => {
     
     switch (groupBy) {
       case 'Activity':
+        // Separate visitors into three categories based on message count and agent assignment
+        const activeVisitors = allVisitors.filter(visitor => 
+          !visitor.agent_id && (visitor.message_count === 0 || !visitor.message_count)
+        );
+        const incomingChatsWithMessages = allVisitors.filter(visitor => 
+          !visitor.agent_id && visitor.message_count && visitor.message_count > 0
+        );
+        const servedVisitorsWithAgent = allVisitors.filter(visitor => 
+          visitor.agent_id
+        );
+        
         return {
-          'incoming': incomingChats,
-          'served': servedVisitors
+          'active': activeVisitors,
+          'incoming': incomingChatsWithMessages,
+          'served': servedVisitorsWithAgent
         };
       
       case 'Country':

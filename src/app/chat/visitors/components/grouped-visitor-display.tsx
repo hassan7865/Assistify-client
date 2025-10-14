@@ -141,6 +141,7 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                    <div className="w-32 text-xs font-semibold text-gray-700">Visitor</div>
                    <div className="w-20"></div>
                    <div className="w-32 text-xs font-semibold text-gray-700 text-center">Online</div>
+                   <div className="w-36 text-xs font-semibold text-gray-700">Viewing</div>
                    <div className="w-40 text-xs font-semibold text-gray-700">Referrer</div>
                    <div className="w-28 text-xs font-semibold text-gray-700 text-center">Served by</div>
                    <div className="flex-1 text-xs font-semibold text-gray-700">Messages</div>
@@ -210,6 +211,22 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                       {/* Online */}
                       <div className="w-32 flex items-center justify-center">
                         <span className="text-xs text-gray-900">{getOnlineStatus(visitor.started_at)}</span>
+                      </div>
+                      
+                      {/* Viewing */}
+                      <div className="w-36 flex items-center">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs text-gray-700 truncate cursor-pointer">
+                              {visitor.metadata?.page_title || '-'}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
+                            <p className="max-w-xs break-words">
+                              {visitor.metadata?.page_title || '-'}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                       
                       {/* Referrer */}

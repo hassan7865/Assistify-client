@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/contexts/auth-context';
+import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 
 export interface VisitorRequest {
   visitor_id: string;
@@ -82,6 +83,21 @@ export const VisitorRequestsProvider: React.FC<VisitorRequestsProviderProps> = (
 
     fetchExistingRequests();
   }, [user?.client_id]);
+
+  // Listen for visitor disconnection events to remove from requests
+  useEffect(() => {
+    const handleVisitorDisconnected = (eventData: any) => {
+      if (eventData.visitor_id) {
+        removeRequest(eventData.visitor_id);
+      }
+    };
+
+    globalEventEmitter.on(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
+    
+    return () => {
+      globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
+    };
+  }, []);
 
   const addRequest = (request: Omit<VisitorRequest, 'timestamp' | 'status'>) => {
     // Check if request already exists

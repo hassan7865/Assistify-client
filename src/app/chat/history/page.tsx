@@ -310,10 +310,10 @@ export default function HistoryPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-gray-200">
-                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Name</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-40">Name</TableHead>
                     <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Agent</TableHead>
-                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Time</TableHead>
-                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Rating</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-20">Time</TableHead>
+                    <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-16">Rating</TableHead>
                     <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Messages</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -326,19 +326,19 @@ export default function HistoryPage() {
                       }`}
                       onClick={() => handleRowClick(conversation)}
                     >
-                      <TableCell className="py-2 px-2">
+                      <TableCell className="py-2 px-1 w-40">
                         <div className="flex items-center gap-1">
                           <input type="checkbox" className="rounded border-gray-300 w-3 h-3" />
-                          <span className="text-gray-600 text-xs">{getConversationVisitorName(conversation)}</span>
+                          <span className="text-gray-600 text-xs truncate">{getConversationVisitorName(conversation)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="py-2 px-3">
                         <span className="text-gray-600 text-xs">{getConversationAgentName(conversation)}</span>
                       </TableCell>
-                      <TableCell className="py-2 px-3">
+                      <TableCell className="py-2 px-1 w-20 text-center">
                         <span className="text-gray-600 text-xs">{formatTimeAgo(conversation.updated_at)}</span>
                       </TableCell>
-                      <TableCell className="py-2 px-3">
+                      <TableCell className="py-2 px-1 w-16 text-center">
                         <span className="text-gray-600 text-xs">-</span>
                       </TableCell>
                       <TableCell className="py-2 px-3">

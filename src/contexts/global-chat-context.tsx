@@ -690,6 +690,11 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
 
   // Chat actions
   const openChat = useCallback(async (visitor: Visitor) => {
+    // Prevent opening chat for visitors with closed status
+    if (visitor.status === 'closed') {
+      return;
+    }
+
     // Handle minimizing current chat if switching visitors
     if (state.selectedVisitor && state.selectedVisitor.visitor_id !== visitor.visitor_id && state.isChatOpen) {
       dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: state.selectedVisitor });
@@ -798,6 +803,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
       dispatch({ type: 'SET_CHAT_OPEN', payload: false });
       dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+      dispatch({ type: 'SET_ENDING_CHAT', payload: false });
       return;
     }
 
@@ -811,9 +817,15 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
 
     const cleanup = () => {
       if (state.selectedVisitor) {
+        // Remove from all maps and states
         dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: state.selectedVisitor.visitor_id });
         dispatch({ type: 'REMOVE_MINIMIZED_CHAT', payload: state.selectedVisitor.visitor_id });
         
+        // Mark visitor as closed before emitting event to prevent reopening
+        const closedVisitor = { ...state.selectedVisitor, status: 'closed' };
+        dispatch({ type: 'SET_SELECTED_VISITOR', payload: closedVisitor });
+        
+        // Emit visitor disconnected event to clean up all contexts
         globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
           visitor_id: state.selectedVisitor.visitor_id,
           session_id: state.selectedVisitor.session_id,

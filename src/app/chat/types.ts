@@ -24,6 +24,7 @@ export interface Visitor {
     user_agent?: string;
     referrer?: string;
     page_url?: string;
+    page_title?: string;
     device_type?: string;
     browser?: string;
     os?: string;
