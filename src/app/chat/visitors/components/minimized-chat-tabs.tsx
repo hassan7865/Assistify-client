@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, WifiOff } from 'lucide-react';
 import { Visitor } from '../../types';
 
 interface MinimizedChatTabsProps {
@@ -37,7 +37,7 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                     : 'hover:bg-[#333333]'
               }`}
               style={{
-                width: '8rem',
+                width: '9rem',
                 height: '1.75rem', // Same height for all chats
                 borderRadius: '0.375rem 0.375rem 0 0',
                 padding: '0.125rem 0.5rem', // Same padding for all chats
@@ -67,9 +67,16 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                 #{chat.visitor_id.substring(0, 8)}
               </div>
               
+              {/* Disconnected icon */}
+              {chat.isDisconnected && (
+                <div className="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0 ml-2" title="Visitor disconnected">
+                  <WifiOff className="h-2.5 w-2.5" />
+                </div>
+              )}
+              
               {/* Unread message count badge */}
-              {chat.hasUnreadMessages && (
-                <div className="bg-orange-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0 ml-1">
+              {chat.hasUnreadMessages && !chat.isDisconnected && (
+                <div className="bg-orange-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0 ml-2">
                   !
                 </div>
               )}
@@ -79,9 +86,11 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
+                    // Simply close the minimized chat (no session cleanup if disconnected)
                     onClose(chat.visitor_id);
                   }}
-                  className="h-4 w-4 bg-orange-500 hover:bg-orange-600 rounded-full flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-300"
+                  className={`h-4 w-4 ${chat.isDisconnected ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} rounded-full flex items-center justify-center flex-shrink-0 ml-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300`}
+                  title={chat.isDisconnected ? 'Close chat (visitor disconnected)' : 'Close chat'}
                 >
                   <X className="h-3 w-3 text-white" />
                 </button>

@@ -24,7 +24,11 @@ interface Visitor {
   agent_name?: string;
   started_at?: string;
   session_id?: string;
+  message_count?: number;
+  visitor_past_count?: number;
+  visitor_chat_count?: number;
   hasUnreadMessages?: boolean;
+  isDisconnected?: boolean;
   metadata?: {
     name?: string;
     email?: string;
@@ -409,13 +413,18 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     if (ChatStorage.isAvailable()) {
       const storedChats = ChatStorage.loadMinimizedChats();
       if (storedChats.length > 0) {
-        // Convert stored chats back to Visitor format
+        
         const visitors: Visitor[] = storedChats.map(storedChat => ({
           visitor_id: storedChat.visitor_id,
           status: storedChat.status,
           agent_id: storedChat.agent_id,
           agent_name: storedChat.agent_name,
           session_id: storedChat.session_id,
+          started_at: storedChat.started_at,
+          message_count: storedChat.message_count,
+          visitor_past_count: storedChat.visitor_past_count,
+          visitor_chat_count: storedChat.visitor_chat_count,
+          isDisconnected: storedChat.isDisconnected,
           metadata: storedChat.metadata,
           hasUnreadMessages: storedChat.hasUnreadMessages
         } as Visitor));
@@ -446,9 +455,14 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
         visitor_name: visitor.metadata?.name,
         agent_name: visitor.agent_name,
         status: visitor.status,
-        hasUnreadMessages: visitor.hasUnreadMessages,
         session_id: visitor.session_id,
         agent_id: visitor.agent_id,
+        started_at: visitor.started_at,
+        message_count: visitor.message_count,
+        visitor_past_count: visitor.visitor_past_count,
+        visitor_chat_count: visitor.visitor_chat_count,
+        isDisconnected: visitor.isDisconnected,
+        hasUnreadMessages: visitor.hasUnreadMessages,
         metadata: visitor.metadata,
         timestamp: new Date().toISOString()
       }));
@@ -768,15 +782,28 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     // Clear unread messages when maximizing the chat
     updateMinimizedChatUnread(visitorId, false);
 
-      if (visitor.agent_id && visitor.agent_name && !currentAgent) {
-        setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
-      }
-  }, [state.minimizedChats, state.selectedVisitor, state.isChatOpen, currentAgent]);
+    if (visitor.agent_id && visitor.agent_name && !currentAgent) {
+      setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
+    }
+
+    // Fetch chat history to restore messages after page reload
+    if (visitor.session_id?.trim()) {
+      fetchChatHistory(visitor.session_id, visitor);
+    }
+  }, [state.minimizedChats, state.selectedVisitor, state.isChatOpen, currentAgent, fetchChatHistory]);
 
   const closeMinimizedChat = useCallback((visitorId: string) => {
     const visitor = state.minimizedChats.find(chat => chat.visitor_id === visitorId);
     if (!visitor) return;
 
+    // If visitor is disconnected, just remove from minimized chats without session cleanup
+    if (visitor.isDisconnected) {
+      dispatch({ type: 'REMOVE_MINIMIZED_CHAT', payload: visitorId });
+      dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: visitorId });
+      return;
+    }
+
+    // Otherwise, show end chat dialog
     dispatch({ type: 'SET_SELECTED_VISITOR', payload: visitor });
     dispatch({ type: 'SET_CHAT_OPEN', payload: true });
     dispatch({ type: 'SET_END_CHAT_DIALOG', payload: true });
@@ -926,12 +953,35 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       }
     };
 
+    const handleVisitorDisconnected = (eventData: any) => {
+      const { visitor_id, reason } = eventData;
+      
+      // Only handle if this is a visitor leaving (not agent ending chat)
+      if (reason === 'agent_ended_chat') return;
+      
+      // Mark visitor as disconnected in selected visitor
+      if (state.selectedVisitor?.visitor_id === visitor_id) {
+        dispatch({ 
+          type: 'SET_SELECTED_VISITOR', 
+          payload: { ...state.selectedVisitor, isDisconnected: true } as Visitor
+        });
+      }
+      
+      // Mark visitor as disconnected in minimized chats
+      const updatedMinimizedChats = state.minimizedChats.map(chat =>
+        chat.visitor_id === visitor_id ? { ...chat, isDisconnected: true } : chat
+      );
+      dispatch({ type: 'SET_MINIMIZED_CHATS', payload: updatedMinimizedChats });
+    };
+
     globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
+    globalEventEmitter.on(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
     
     return () => {
       globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
+      globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
     };
-  }, [currentAgent, state.selectedVisitor, state.isChatOpen]);
+  }, [currentAgent, state.selectedVisitor, state.isChatOpen, state.minimizedChats]);
 
   // Cleanup on unmount
   useEffect(() => {

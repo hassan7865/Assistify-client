@@ -81,18 +81,32 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
             <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
           <button 
-            onClick={onMinimize}
+            onClick={() => {
+              // If visitor is disconnected, just minimize without session cleanup
+              if (visitor.isDisconnected) {
+                onMinimize();
+              } else {
+                onMinimize();
+              }
+            }}
             className={`h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] cursor-pointer`}
-            title={canEndChat ? 'Minimize chat' : 'Close chat (not assigned to you)'}
+            title={visitor.isDisconnected ? 'Minimize chat (visitor disconnected)' : canEndChat ? 'Minimize chat' : 'Close chat (not assigned to you)'}
           >
             <Minus className="h-3 w-3 text-white" />
           </button>
           <button 
-            onClick={canEndChat ? onClose : () => {}} // Only allow closing if agent can end chat
+            onClick={() => {
+              // If visitor is disconnected, just close the dialog without ending session
+              if (visitor.isDisconnected) {
+                onMinimize(); // Just minimize it
+              } else if (canEndChat) {
+                onClose();
+              }
+            }}
             className={`h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] ${
-              !canEndChat ? 'cursor-not-allowed' : 'cursor-pointer'
+              !canEndChat && !visitor.isDisconnected ? 'cursor-not-allowed' : 'cursor-pointer'
             }`}
-            title={canEndChat ? 'Close chat' : 'Only the assigned agent can end this chat'}
+            title={visitor.isDisconnected ? 'Close chat (visitor disconnected)' : canEndChat ? 'Close chat' : 'Only the assigned agent can end this chat'}
           >
             <X className="h-3 w-3 text-white" />
           </button>
@@ -163,7 +177,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
         ) : (
           <>
             {/* Left Panel - Chat */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0">
               <ChatInterface 
                 visitor={visitor}
                 selectedAgent={selectedAgent}

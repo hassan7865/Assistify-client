@@ -7,7 +7,10 @@ export interface Visitor {
   started_at?: string;
   session_id?: string;
   message_count?: number;
+  visitor_past_count?: number;
+  visitor_chat_count?: number;
   hasUnreadMessages?: boolean;
+  isDisconnected?: boolean;
   last_message?: {
     content: string;
     sender_type: string;

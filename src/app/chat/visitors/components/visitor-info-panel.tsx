@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { getCountryFlag, getBrowserIcon, getOSIcon, getMessageCount } from '@/lib/visitor-icons';
+import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
 import { Visitor, ChatMessage, getChatDuration } from '../../types';
 
 interface VisitorInfoPanelProps {
@@ -15,13 +15,38 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
-
-
+  const [currentDuration, setCurrentDuration] = useState('');
+  const [timerActive, setTimerActive] = useState(true);
 
   useEffect(() => {
     setName(visitor.metadata?.name || '');
     setEmail(visitor.metadata?.email || '');
   }, [visitor.metadata?.name, visitor.metadata?.email]);
+
+  // Timer effect - updates every second unless visitor is disconnected
+  useEffect(() => {
+    // If visitor is disconnected, freeze the timer at the current value
+    if (visitor.isDisconnected && timerActive) {
+      setCurrentDuration(getChatDuration(visitor.started_at));
+      setTimerActive(false);
+      return;
+    }
+
+    // If timer is not active (visitor disconnected), don't start interval
+    if (!timerActive) {
+      return;
+    }
+
+    // Update duration immediately
+    setCurrentDuration(getChatDuration(visitor.started_at));
+
+    // Set up interval to update every second
+    const interval = setInterval(() => {
+      setCurrentDuration(getChatDuration(visitor.started_at));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [visitor.started_at, visitor.isDisconnected, timerActive]);
 
   return (
     <div className="flex flex-col overflow-y-auto h-full custom-scrollbar">
@@ -88,19 +113,19 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
           <div className="grid grid-cols-3 divide-x divide-gray-200">
             {/* Past Visits */}
             <div className="flex flex-col items-center justify-center px-2">
-              <div className="text-sm font-bold text-gray-900">11</div>
+              <div className="text-sm font-bold text-gray-900">{visitor.visitor_past_count || 0}</div>
               <div className="text-xs text-gray-600 text-center">Past visits</div>
             </div>
             
-            {/* Message Count */}
+            {/* Past Chats */}
             <div className="flex flex-col items-center justify-center px-2">
-              <div className="text-sm font-bold text-gray-900">{getMessageCount({ message_count: visitor.message_count || 0 })}</div>
+              <div className="text-sm font-bold text-gray-900">{visitor.visitor_chat_count || 0}</div>
               <div className="text-xs text-gray-600 text-center">Past chats</div>
             </div>
 
             {/* Time on Site */}
             <div className="flex flex-col items-center justify-center px-2">
-              <div className="text-sm font-bold text-gray-900">{getChatDuration(visitor.started_at)}</div>
+              <div className="text-sm font-bold text-gray-900">{currentDuration}</div>
               <div className="text-xs text-gray-600 text-center">Time on site</div>
             </div>
           </div>

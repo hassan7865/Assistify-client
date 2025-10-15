@@ -102,22 +102,30 @@ export const useVisitors = () => {
     pendingVisitorOperations.current.add(visitorId);
 
     try {
+      // Get the current visitor data to extract IP address
+      const currentVisitor = visitors.find(v => v.visitor_id === visitorId);
+      
       const response = await api.post(`/chat/take-visitor`, {
         agent_id: CURRENT_AGENT.id,
         visitor_id: visitorId,
+        ip_address: currentVisitor?.metadata?.ip_address || null,
       });
 
       if (response.data.success) {
-        // Get the current visitor data from our state
-        const currentVisitor = visitors.find(v => v.visitor_id === visitorId);
+        // Extract the counts and other data from API response
+        const { session_id, metadata, visitor_past_count, visitor_chat_count } = response.data;
         
-        // Create updated visitor with agent info
+        // Create updated visitor with agent info and counts
         const updatedVisitor = {
           ...currentVisitor,
           visitor_id: visitorId,
           agent_id: CURRENT_AGENT.id,
           agent_name: CURRENT_AGENT.name,
           status: "active",
+          session_id: session_id,
+          metadata: metadata || currentVisitor?.metadata || {},
+          visitor_past_count: visitor_past_count || 0,
+          visitor_chat_count: visitor_chat_count || 0,
           // Use API response data if available, otherwise keep current data
           ...(response.data.visitor || {})
         };

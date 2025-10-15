@@ -13,6 +13,11 @@ export interface StoredMinimizedChat {
   hasUnreadMessages?: boolean;
   session_id?: string;
   agent_id?: string;
+  started_at?: string;
+  message_count?: number;
+  visitor_past_count?: number;
+  visitor_chat_count?: number;
+  isDisconnected?: boolean;
   metadata?: {
     name?: string;
     email?: string;

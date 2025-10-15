@@ -148,6 +148,22 @@ const VisitorMonitor: React.FC = () => {
       
       // Clean up stored data after use
       visitorDataCache.current.delete(visitorId);
+    } else if (data.type == "visitor_left") {
+      const visitorId = data.visitor_id;
+      const sessionId = data.session_id;
+      
+      // Remove visitor request if they left before being assigned
+      removeRequest(visitorId);
+      
+      // Emit global event to notify other components to remove the visitor
+      globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
+        visitor_id: visitorId,
+        session_id: sessionId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Clean up stored data
+      visitorDataCache.current.delete(visitorId);
     }
   }, [getCurrentAgent, addRequest, removeRequest, playNotificationSound]);
 

@@ -48,7 +48,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
   }, []);
 
   // Global takeVisitor function that works from any page
-  const globalTakeVisitor = useCallback(async (visitorId: string) => {
+  const globalTakeVisitor = useCallback(async (visitorId: string, visitorData?: any) => {
     try {
       // Get current user info from cache or API
       const token = localStorage.getItem('token');
@@ -73,15 +73,16 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
         return;
       }
 
-      // Make the API call to take the visitor
+      // Make the API call to take the visitor with IP address if available
       const response = await api.post('/chat/take-visitor', {
         agent_id: user.user_id,
         visitor_id: visitorId,
+        ip_address: visitorData?.metadata?.ip_address || null,
       });
 
       if (response.data.success) {
         // Get visitor data from the API response
-        const { session_id, metadata } = response.data;
+        const { session_id, metadata, visitor_past_count, visitor_chat_count } = response.data;
         
         // Create visitor object with API response data
         const visitor = {
@@ -91,7 +92,9 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
           status: "active",
           started_at: new Date().toISOString(), // Use current time since API doesn't return started_at
           session_id: session_id,
-          metadata: metadata || {}
+          metadata: metadata || {},
+          visitor_past_count: visitor_past_count || 0,
+          visitor_chat_count: visitor_chat_count || 0,
         };
         
         // Open the chat dialog (this will handle adding to minimized chats if needed)
