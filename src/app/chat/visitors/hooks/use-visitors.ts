@@ -66,10 +66,35 @@ export const useVisitors = () => {
         }
       );
 
-      setPendingVisitors(filteredPendingVisitors);
-      setActiveVisitors(filteredActiveVisitors);
+      // Replace visitor_id with first_name (if present)
+      const mapName = (v: Visitor): Visitor => ({
+        ...v,
+        // If backend provided first_name, keep it; otherwise, try metadata
+        first_name: v.first_name || v.metadata?.name || undefined,
+      });
+
+      const namedPending = filteredPendingVisitors.map(mapName);
+      const namedActive = filteredActiveVisitors.map(mapName);
+
+      // Merge with minimized chats to ensure UI reflects persisted name after reload
+      const mergeWithMinimized = (list: Visitor[]) => list.map(v => {
+        const persisted = minimizedChats.find(m => m.visitor_id === v.visitor_id);
+        if (!persisted) return v;
+        return {
+          ...v,
+          first_name: persisted.first_name ?? v.first_name,
+          last_name: persisted.last_name ?? v.last_name,
+          metadata: { ...(v.metadata || {}), ...(persisted.metadata || {}) }
+        };
+      });
+
+      const displayPending = mergeWithMinimized(namedPending);
+      const displayActive = mergeWithMinimized(namedActive);
+
+      setPendingVisitors(displayPending);
+      setActiveVisitors(displayActive);
       
-      const allVisitors = [...filteredPendingVisitors, ...filteredActiveVisitors];
+      const allVisitors = [...displayPending, ...displayActive];
       setVisitors(allVisitors);
 
       // Clean up minimized chats and visitor map for visitors no longer in pending/active status
@@ -126,11 +151,12 @@ export const useVisitors = () => {
           metadata: metadata || currentVisitor?.metadata || {},
           visitor_past_count: visitor_past_count || 0,
           visitor_chat_count: visitor_chat_count || 0,
-          first_name: first_name || null,
-          last_name: last_name || null,
+          // Prefer name returned by API; else keep current/persisted name; else fallback to metadata.name
+          first_name: (first_name ?? currentVisitor?.first_name ?? currentVisitor?.metadata?.name) || null,
+          last_name: (last_name ?? currentVisitor?.last_name) || null,
           // Use API response data if available, otherwise keep current data
           ...(response.data.visitor || {})
-        };
+        } as Visitor;
         
         // Remove visitor from pending list if it exists there
         setPendingVisitors(prev => prev.filter(v => v.visitor_id !== visitorId));
@@ -148,12 +174,16 @@ export const useVisitors = () => {
           }
         });
         
-        // Update the main visitors list
-        setVisitors(prev => prev.map(v => 
-          v.visitor_id === visitorId 
+        // Update the main visitors list and two lists, ensuring the display uses name first
+        const applyUpdate = (v: Visitor) => (
+          v.visitor_id === visitorId
             ? updatedVisitor
             : v
-        ));
+        );
+
+        setVisitors(prev => prev.map(applyUpdate));
+        setPendingVisitors(prev => prev.map(applyUpdate));
+        setActiveVisitors(prev => prev.map(applyUpdate));
         
         // If skipRefresh is false, open chat dialog (this will handle minimizing current chat if needed)
         if (!skipRefresh) {
@@ -260,12 +290,19 @@ export const useVisitors = () => {
       ));
     };
 
+    const handleUpdateVisitorName = ({ visitorId, first_name }: { visitorId: string; first_name: string }) => {
+      setVisitors(prev => prev.map(v => v.visitor_id === visitorId ? { ...v, first_name } : v));
+      setPendingVisitors(prev => prev.map(v => v.visitor_id === visitorId ? { ...v, first_name } : v));
+      setActiveVisitors(prev => prev.map(v => v.visitor_id === visitorId ? { ...v, first_name } : v));
+    };
+
 
     // Register event listeners
     globalEventEmitter.on(EVENTS.NEW_VISITOR, handleNewVisitor);
     globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
     globalEventEmitter.on(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
     globalEventEmitter.on(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, handleUpdateLastMessage);
+    globalEventEmitter.on(EVENTS.UPDATE_VISITOR_NAME, handleUpdateVisitorName);
 
     // Cleanup event listeners
     return () => {
@@ -273,6 +310,7 @@ export const useVisitors = () => {
       globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
       globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
       globalEventEmitter.off(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, handleUpdateLastMessage);
+      globalEventEmitter.off(EVENTS.UPDATE_VISITOR_NAME, handleUpdateVisitorName);
     };
   }, [fetchVisitors, removeVisitor]);
 

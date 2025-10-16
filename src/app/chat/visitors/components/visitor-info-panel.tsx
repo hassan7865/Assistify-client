@@ -81,7 +81,7 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
         // Update visitor object locally
         visitor.first_name = name.trim();
         
-        // Update global state and localStorage
+        // Update global state and localStorage (will also refresh minimized tab and list)
         updateVisitorName(visitor.visitor_id, name.trim());
       }
     } catch (error) {

@@ -7,7 +7,7 @@ import ChatInterface from './chat-interface';
 import VisitorInfoPanel from './visitor-info-panel';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
-import { Visitor, ChatMessage } from '../../types';
+import { Visitor, ChatMessage, getVisitorName } from '../../types';
 
 interface VisitorDetailsPopupProps {
   visitor: Visitor;
@@ -70,7 +70,9 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
           />
           </div>
          
-          <span style={{ fontSize: '14px' }} className="font-medium text-white">Visitor #{visitor.visitor_id.substring(0, 8)}</span>
+          <span style={{ fontSize: '14px' }} className="font-medium text-white">
+            {visitor.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`}
+          </span>
           {getCountryFlag(visitor.metadata?.country)}
           {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent, 'h-3 w-3')}
           {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent, 'h-3 w-3')}

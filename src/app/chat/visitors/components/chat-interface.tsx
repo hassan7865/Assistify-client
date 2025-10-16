@@ -422,6 +422,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               
                 // Check if this is a system message
                 const isSystemMessage = message.sender === 'system';
+                const visitorDisplayName = (visitor.first_name && visitor.first_name.trim())
+                  ? visitor.first_name
+                  : `#${visitor.visitor_id.substring(0, 8)}`;
                 
                 return (
                   <div key={message.id} className="flex flex-col">
@@ -447,7 +450,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                             <span className={`text-xs font-medium ${
                               message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
                             }`}>
-                              {message.sender === 'agent' ? (currentAgent?.name || 'Agent') : 'Visitor'}
+                              {message.sender === 'agent' ? (currentAgent?.name || 'Agent') : visitorDisplayName}
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
                               {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
@@ -848,7 +851,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     <span className={`text-xs font-medium ${
                                       message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
                                     }`}>
-                                      {message.sender_type === 'client_agent' ? (selectedPastChat.agent_info?.name || 'Agent') : 'Visitor'}
+                              {message.sender_type === 'client_agent' 
+                                ? (selectedPastChat.agent_info?.name || 'Agent') 
+                                : (visitor.first_name?.trim() ? visitor.first_name : `#${visitor.visitor_id.substring(0, 8)}`)}
                                     </span>
                                     <span className="text-xs text-gray-500 ml-2">
                                       {formatTime(message.timestamp)}

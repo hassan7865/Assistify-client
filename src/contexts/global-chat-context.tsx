@@ -131,6 +131,7 @@ type ChatAction =
   | { type: 'REMOVE_MINIMIZED_CHAT'; payload: string }
   | { type: 'UPDATE_MINIMIZED_CHAT_UNREAD'; payload: { visitorId: string; hasUnreadMessages: boolean } }
   | { type: 'UPDATE_VISITOR_NAME'; payload: { visitorId: string; firstName: string } }
+  | { type: 'UPDATE_VISITOR_FIELD'; payload: { visitorId: string; updates: Partial<Visitor> } }
   | { type: 'UPDATE_VISITOR_CHAT_STATE'; payload: { visitorId: string; updates: Partial<VisitorChatState> } }
   | { type: 'REMOVE_VISITOR_CHAT_STATE'; payload: string }
   | { type: 'ADD_MESSAGE'; payload: { visitorId: string; message: ChatMessage } }
@@ -242,6 +243,21 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             : chat
         )
       };
+
+    case 'UPDATE_VISITOR_FIELD': {
+      const { visitorId, updates } = action.payload;
+      return {
+        ...state,
+        selectedVisitor: state.selectedVisitor?.visitor_id === visitorId
+          ? { ...state.selectedVisitor, ...updates, metadata: { ...(state.selectedVisitor.metadata || {}), ...(updates as any).metadata } }
+          : state.selectedVisitor,
+        minimizedChats: state.minimizedChats.map(chat =>
+          chat.visitor_id === visitorId
+            ? { ...chat, ...updates, metadata: { ...(chat.metadata || {}), ...(updates as any).metadata } }
+            : chat
+        )
+      };
+    }
     
     case 'UPDATE_VISITOR_CHAT_STATE': {
       const newMap = new Map(state.visitorChatStates);
@@ -540,7 +556,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       });
 
       if (response.data?.data?.messages) {
-        const formattedMessages: ChatMessage[] = response.data.data.messages.map((msg: any) => ({
+        let formattedMessages: ChatMessage[] = response.data.data.messages.map((msg: any) => ({
           id: msg.message_id || `${Date.now()}-${Math.random()}`,
           sender: msg.sender_type === 'visitor' ? 'visitor' : 
                  (msg.sender_type === 'agent' || msg.sender_type === 'client_agent') ? 'agent' : 'system',
@@ -549,6 +565,20 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           timestamp: msg.timestamp || new Date().toISOString(),
           seen_status: msg.seen_status || 'delivered'
         }));
+
+        // Replace raw visitor_id with visitor display name in system messages (e.g., joined/connected)
+        const displayName = (visitor.first_name && visitor.first_name.trim())
+          ? visitor.first_name
+          : `#${visitor.visitor_id.substring(0, 8)}`;
+        const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const fullIdRegex = new RegExp(escapeRegex(visitor.visitor_id), 'g');
+        const shortId = visitor.visitor_id.substring(0, 8);
+        const shortIdRegex = new RegExp(`\\b${escapeRegex(shortId)}\\b`, 'g');
+        formattedMessages = formattedMessages.map(m => (
+          m.sender === 'system' && typeof m.message === 'string'
+            ? { ...m, message: m.message.replace(fullIdRegex, displayName).replace(shortIdRegex, displayName) }
+            : m
+        ));
         
         dispatch({
           type: 'UPDATE_VISITOR_CHAT_STATE',
@@ -597,7 +627,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       if (data.type === 'chat_message' || data.type === 'attachment_message') {
         console.log(data);
         const isAttachment = data.type === 'attachment_message' || data.attachment;
-        const newMessage: ChatMessage = {
+        let newMessage: ChatMessage = {
           id: data.message_id || `${Date.now()}-${Math.random()}`,
           sender: data.sender_type === 'visitor' ? 'visitor' : 
                  (data.sender_type === 'agent' || data.sender_type === 'client_agent') ? 'agent' : 'system',
@@ -609,6 +639,21 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           attachment_name: data.attachment?.file_name,
           attachment_url: data.attachment?.url
         };
+
+        // If it's a system message, replace visitor_id with display name
+        if (newMessage.sender === 'system' && typeof newMessage.message === 'string') {
+          const displayName = (visitor.first_name && visitor.first_name.trim())
+            ? visitor.first_name
+            : `#${visitor.visitor_id.substring(0, 8)}`;
+          const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const fullIdRegex = new RegExp(escapeRegex(visitor.visitor_id), 'g');
+          const shortId = visitor.visitor_id.substring(0, 8);
+          const shortIdRegex = new RegExp(`\\b${escapeRegex(shortId)}\\b`, 'g');
+          newMessage = { 
+            ...newMessage, 
+            message: newMessage.message.replace(fullIdRegex, displayName).replace(shortIdRegex, displayName) 
+          };
+        }
 
         dispatch({
           type: 'ADD_MESSAGE',
@@ -738,39 +783,78 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       return;
     }
 
+    // Check if this visitor exists in minimized chats (localStorage) and deeply merge saved fields
+    const existingChat = state.minimizedChats.find(chat => chat.visitor_id === visitor.visitor_id);
+    const mergedVisitor = existingChat
+      ? {
+          ...visitor,
+          // Prefer persisted session when available
+          session_id: existingChat.session_id || visitor.session_id,
+          // Names
+          first_name: existingChat.first_name ?? visitor.first_name,
+          last_name: existingChat.last_name ?? visitor.last_name,
+          // Counts and timing
+          visitor_past_count: existingChat.visitor_past_count ?? visitor.visitor_past_count,
+          visitor_chat_count: existingChat.visitor_chat_count ?? visitor.visitor_chat_count,
+          started_at: existingChat.started_at || visitor.started_at,
+          // UI-related states
+          isDisconnected: existingChat.isDisconnected ?? visitor.isDisconnected,
+          hasUnreadMessages: existingChat.hasUnreadMessages ?? visitor.hasUnreadMessages,
+          // Merge metadata with persisted taking precedence
+          metadata: {
+            ...(visitor.metadata || {}),
+            ...(existingChat.metadata || {})
+          }
+        }
+      : visitor;
+
     // Handle minimizing current chat if switching visitors
-    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== visitor.visitor_id && state.isChatOpen) {
+    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== mergedVisitor.visitor_id && state.isChatOpen) {
       dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: state.selectedVisitor });
     }
 
     // Handle switching animation
-    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== visitor.visitor_id) {
+    if (state.selectedVisitor && state.selectedVisitor.visitor_id !== mergedVisitor.visitor_id) {
       dispatch({ type: 'SET_SWITCHING_VISITOR', payload: true });
       await new Promise(resolve => setTimeout(resolve, 150));
     }
 
     // Add visitor to minimized chats if it's not already there and belongs to current agent
-    if (visitor.agent_id && currentAgent?.id && visitor.agent_id === currentAgent.id) {
-      const exists = state.minimizedChats.some(chat => chat.visitor_id === visitor.visitor_id);
+    if (mergedVisitor.agent_id && currentAgent?.id && mergedVisitor.agent_id === currentAgent.id) {
+      const exists = state.minimizedChats.some(chat => chat.visitor_id === mergedVisitor.visitor_id);
       if (!exists) {
-        dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: visitor });
+        dispatch({ type: 'ADD_MINIMIZED_CHAT', payload: mergedVisitor });
+      } else {
+        // Update existing minimized chat with merged data
+        dispatch({ 
+          type: 'SET_MINIMIZED_CHATS', 
+          payload: state.minimizedChats.map(chat => 
+            chat.visitor_id === mergedVisitor.visitor_id 
+              ? { 
+                  ...chat, 
+                  ...mergedVisitor, 
+                  metadata: { ...(chat.metadata || {}), ...(mergedVisitor.metadata || {}) }
+                }
+              : chat
+          )
+        });
       }
     }
 
-    dispatch({ type: 'SET_SELECTED_VISITOR', payload: visitor });
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: mergedVisitor });
     dispatch({ type: 'SET_CHAT_OPEN', payload: true });
     dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
     dispatch({ type: 'SET_SWITCHING_VISITOR', payload: false });
     dispatch({ type: 'SET_HAS_STARTED_TYPING', payload: false });
 
     // Set agent if needed
-    if (visitor.agent_id && visitor.agent_name && !currentAgent) {
-      setCurrentAgent({ id: visitor.agent_id, name: visitor.agent_name });
+    if (mergedVisitor.agent_id && mergedVisitor.agent_name && !currentAgent) {
+      setCurrentAgent({ id: mergedVisitor.agent_id, name: mergedVisitor.agent_name });
     }
 
     // Fetch history and connect WebSocket
-    if (visitor.session_id?.trim()) {
-      fetchChatHistory(visitor.session_id, visitor);
+    if (mergedVisitor.session_id?.trim()) {
+      fetchChatHistory(mergedVisitor.session_id, mergedVisitor);
     }
   }, [state.selectedVisitor, state.isChatOpen, state.minimizedChats, currentAgent, fetchChatHistory]);
 
@@ -852,6 +936,10 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const updateVisitorName = useCallback((visitorId: string, firstName: string) => {
     dispatch({ type: 'UPDATE_VISITOR_NAME', payload: { visitorId, firstName } });
+    // Notify other modules (like use-visitors list) to update their local state
+    try {
+      globalEventEmitter.emit(EVENTS.UPDATE_VISITOR_NAME, { visitorId, first_name: firstName });
+    } catch {}
   }, []);
 
   const handleEndChat = useCallback(() => {
