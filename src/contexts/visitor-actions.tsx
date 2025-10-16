@@ -82,7 +82,7 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
 
       if (response.data.success) {
         // Get visitor data from the API response
-        const { session_id, metadata, visitor_past_count, visitor_chat_count } = response.data;
+        const { session_id, metadata, visitor_past_count, visitor_chat_count, first_name, last_name } = response.data;
         
         // Create visitor object with API response data
         const visitor = {
@@ -95,6 +95,8 @@ export const VisitorActionsProvider: React.FC<VisitorActionsProviderProps> = ({ 
           metadata: metadata || {},
           visitor_past_count: visitor_past_count || 0,
           visitor_chat_count: visitor_chat_count || 0,
+          first_name: first_name || null,
+          last_name: last_name || null,
         };
         
         // Open the chat dialog (this will handle adding to minimized chats if needed)

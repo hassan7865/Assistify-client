@@ -113,7 +113,7 @@ export const useVisitors = () => {
 
       if (response.data.success) {
         // Extract the counts and other data from API response
-        const { session_id, metadata, visitor_past_count, visitor_chat_count } = response.data;
+        const { session_id, metadata, visitor_past_count, visitor_chat_count, first_name, last_name } = response.data;
         
         // Create updated visitor with agent info and counts
         const updatedVisitor = {
@@ -126,6 +126,8 @@ export const useVisitors = () => {
           metadata: metadata || currentVisitor?.metadata || {},
           visitor_past_count: visitor_past_count || 0,
           visitor_chat_count: visitor_chat_count || 0,
+          first_name: first_name || null,
+          last_name: last_name || null,
           // Use API response data if available, otherwise keep current data
           ...(response.data.visitor || {})
         };

@@ -11,6 +11,8 @@ export interface Visitor {
   visitor_chat_count?: number;
   hasUnreadMessages?: boolean;
   isDisconnected?: boolean;
+  first_name?: string;
+  last_name?: string;
   last_message?: {
     content: string;
     sender_type: string;
@@ -41,6 +43,9 @@ export interface ChatMessage {
   message: string;
   timestamp: string;
   seen_status?: 'delivered' | 'read';
+  type?: 'text' | 'attachment' | 'system';
+  attachment_name?: string;
+  attachment_url?: string;
 }
 
 export interface MinimizedChat {
@@ -64,10 +69,10 @@ export const getAgentName = (visitor: Visitor): string => {
 };
 
 // Utility functions for chat conversation data
-export const getConversationVisitorName = (conversation: { metadata?: { name?: string }; visitor_id?: string }): string => {
-  return conversation.metadata?.name || 
-         conversation.visitor_id?.substring(0, 8) || 
-         'Anonymous';
+export const getConversationVisitorName = (conversation: { first_name?: string; metadata?: { name?: string }; visitor_id?: string }): string => {
+  return conversation.first_name ||
+         conversation.metadata?.name || 
+         (conversation.visitor_id ? `Visitor #${conversation.visitor_id.substring(0, 8)}` : 'Anonymous');
 };
 
 export const getConversationAgentName = (conversation: { agent_info?: { name: string }; agent_id?: string }): string => {

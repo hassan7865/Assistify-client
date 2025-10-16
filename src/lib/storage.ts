@@ -18,6 +18,8 @@ export interface StoredMinimizedChat {
   visitor_past_count?: number;
   visitor_chat_count?: number;
   isDisconnected?: boolean;
+  first_name?: string;
+  last_name?: string;
   metadata?: {
     name?: string;
     email?: string;

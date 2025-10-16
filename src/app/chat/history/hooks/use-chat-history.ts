@@ -10,6 +10,8 @@ export interface ChatConversation {
   client_id: string;
   visitor_id?: string;
   agent_id?: string;
+  first_name?: string;
+  last_name?: string;
   agent_info?: {
     name: string;
     email: string;

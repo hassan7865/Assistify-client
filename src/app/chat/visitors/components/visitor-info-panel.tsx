@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
 import { Visitor, ChatMessage, getChatDuration } from '../../types';
+import api from '@/lib/axios';
+import { useGlobalChat } from '@/contexts/global-chat-context';
 
 interface VisitorInfoPanelProps {
   visitor: Visitor;
@@ -17,11 +19,23 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
   const [notes, setNotes] = useState('');
   const [currentDuration, setCurrentDuration] = useState('');
   const [timerActive, setTimerActive] = useState(true);
+  const [isNameEditing, setIsNameEditing] = useState(false);
+  const [savedName, setSavedName] = useState('');
+  
+  const { updateVisitorName } = useGlobalChat();
 
   useEffect(() => {
-    setName(visitor.metadata?.name || '');
+    // Initialize from visitor.first_name (from API) or metadata.name (legacy)
+    const initialName = visitor.first_name || visitor.metadata?.name || '';
+    setName(initialName);
+    setSavedName(initialName);
     setEmail(visitor.metadata?.email || '');
-  }, [visitor.metadata?.name, visitor.metadata?.email]);
+    
+    // If there's no saved name, start in editing mode
+    if (!initialName) {
+      setIsNameEditing(true);
+    }
+  }, [visitor.first_name, visitor.metadata?.name, visitor.metadata?.email]);
 
   // Timer effect - updates every second unless visitor is disconnected
   useEffect(() => {
@@ -48,6 +62,46 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     return () => clearInterval(interval);
   }, [visitor.started_at, visitor.isDisconnected, timerActive]);
 
+  // Handle saving visitor name
+  const handleSaveName = async () => {
+    if (!name.trim()) return;
+
+    try {
+      const response = await api.put('/chat/save-visitor-name', {
+        visitor_id: visitor.visitor_id,
+        session_id: visitor.session_id,
+        first_name: name.trim(),
+        last_name: null
+      });
+      
+      if (response.data.success) {
+        setSavedName(name.trim());
+        setIsNameEditing(false);
+        
+        // Update visitor object locally
+        visitor.first_name = name.trim();
+        
+        // Update global state and localStorage
+        updateVisitorName(visitor.visitor_id, name.trim());
+      }
+    } catch (error) {
+      console.error('Error saving visitor name:', error);
+    }
+  };
+
+  // Handle Enter key press on name input
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveName();
+    }
+  };
+
+  // Handle double-click to enable editing
+  const handleNameDoubleClick = () => {
+    setIsNameEditing(true);
+  };
+
   return (
     <div className="flex flex-col overflow-y-auto h-full custom-scrollbar">
       <div className="p-3 space-y-3">
@@ -62,13 +116,25 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
               />
             </div>
             <div className="flex-1 space-y-2">
-              <input
-                type="text"
-                placeholder="Add name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-              />
+              {isNameEditing || !savedName ? (
+                <input
+                  type="text"
+                  placeholder="Add name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  autoFocus={isNameEditing}
+                  className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+                />
+              ) : (
+                <div
+                  onDoubleClick={handleNameDoubleClick}
+                  className="w-full px-2 py-1 border border-transparent text-xs font-semibold bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100"
+                  title="Double-click to edit"
+                >
+                  {savedName}
+                </div>
+              )}
               <input
                 type="email"
                 placeholder="Add email"

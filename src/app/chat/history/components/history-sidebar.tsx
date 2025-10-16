@@ -22,7 +22,7 @@ interface HistorySidebarProps {
 
 const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, isClosing = false }) => {
   const [activeTab, setActiveTab] = useState('transcript');
-  const [name, setName] = useState(conversation.metadata?.name || '');
+  const [name, setName] = useState(conversation.first_name || conversation.metadata?.name || '');
   const [email, setEmail] = useState(conversation.metadata?.email || '');
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -147,12 +147,9 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                     />
                     </div>
                   <div className="flex-1 space-y-2">
-                    <input
-                        type="text"
-                        placeholder="Add name"
-                      defaultValue={conversation.metadata?.name || ''}
-                      className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
-                      />
+                    <div className="w-full px-2 py-1 border border-transparent text-xs font-semibold bg-gray-50 rounded-xs">
+                      {conversation.first_name || conversation.metadata?.name || `Visitor #${conversation.visitor_id?.substring(0, 8) || 'Unknown'}`}
+                    </div>
                     <input
                         type="email"
                         placeholder="Add email"

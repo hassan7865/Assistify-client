@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Smile, ThumbsUp, Paperclip, MessageCircle } from 'lucide-react';
+import { Smile, ThumbsUp, Paperclip, MessageCircle, FileText, X } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -53,6 +53,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [chatMessage, setChatMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
   const [pastChatHistory, setPastChatHistory] = useState<ChatHistoryRecord[]>([]);
   const [selectedPastChat, setSelectedPastChat] = useState<ChatHistoryRecord | null>(null);
   const [loadingPastHistory, setLoadingPastHistory] = useState(false);
@@ -191,6 +193,103 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }, 0);
     
     setShowEmojiPicker(false);
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    if (!visitor.session_id || !visitor.visitor_id) return;
+
+    const fileKey = `${file.name}-${Date.now()}`;
+    setUploadingFiles(prev => new Set(prev).add(fileKey));
+
+    try {
+      // 1. Get presigned URL
+      const presignResponse = await api.post(
+        `/chat/${visitor.session_id}/visitor/${visitor.visitor_id}/attachments/presign`,
+        {
+          file_name: file.name,
+          mime_type: file.type || 'application/octet-stream',
+          size: file.size
+        }
+      );
+
+      if (!presignResponse.data.success) {
+        throw new Error('Failed to get upload URL');
+      }
+
+      const { upload_url, headers, s3_key, public_url } = presignResponse.data;
+
+      // 2. Upload to S3 using presigned URL
+      if (upload_url) {
+        // Start with Content-Type from file, then merge backend headers (as in fe_flow_test.py)
+        const uploadHeaders: Record<string, string> = {
+          'Content-Type': file.type || 'application/octet-stream'
+        };
+        
+        // Merge additional headers from backend response
+        if (headers) {
+          Object.assign(uploadHeaders, headers);
+        }
+
+        const uploadResponse = await fetch(upload_url, {
+          method: 'PUT',
+          body: file,
+          headers: uploadHeaders
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload file to S3: ${uploadResponse.status}`);
+        }
+      } else if (public_url) {
+        // Public bucket mode
+        const uploadResponse = await fetch(public_url, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream'
+          }
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload file to public bucket');
+        }
+      }
+
+      // 3. Commit attachment
+      await api.post(
+        `/chat/${visitor.session_id}/visitor/${visitor.visitor_id}/attachments/upload`,
+        {
+          file_name: file.name,
+          mime_type: file.type || 'application/octet-stream',
+          size: file.size,
+          s3_key: s3_key,
+          caption: '',
+          sender_type: 'client_agent',
+          sender_id: currentAgent?.id
+        }
+      );
+
+      // Remove from pending files
+      setPendingFiles(prev => prev.filter(f => f !== file));
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert(`Failed to upload ${file.name}`);
+    } finally {
+      setUploadingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileKey);
+        return newSet;
+      });
+    }
+  };
+
+  // Upload all pending files
+  const handleUploadAllFiles = async () => {
+    if (pendingFiles.length === 0) return;
+    
+    for (const file of pendingFiles) {
+      await handleFileUpload(file);
+    }
   };
 
   // Close emoji picker when clicking outside
@@ -355,11 +454,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                             </span>
                           </div>
                         )}
-                        <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
-                          message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
-                        }`}>
-                          {message.message}
-                        </div>
+                        { (message as any).type === 'attachment' && (message as any).attachment_name ? (
+                          <div className="text-xs max-w-48 break-words flex items-center gap-2">
+                            <FileText className="w-3.5 h-3.5 text-gray-600" />
+                            <a
+                              href={(message as any).attachment_url || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline truncate"
+                              title={(message as any).attachment_name}
+                            >
+                              {(message as any).attachment_name}
+                            </a>
+                          </div>
+                        ) : (
+                          <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
+                            message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
+                          }`}>
+                            {message.message}
+                          </div>
+                        )}
                       </>
                     )}
                     {message.sender === 'agent' && !isSystemMessage && (
@@ -482,6 +596,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             disabled={!isConnected}
           />
           {/* Action Buttons - positioned at bottom right */}
+          {/* Pending attachments chips */}
+          {pendingFiles.length > 0 && (
+            <div className="absolute left-3 bottom-2 flex items-center gap-2 flex-wrap max-w-[70%]">
+              {pendingFiles.map((file, idx) => {
+                const fileKey = `${file.name}-${Date.now()}`;
+                const isUploading = uploadingFiles.has(fileKey);
+                
+                return (
+                  <div key={idx} className="flex items-center gap-1 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-sm text-[10px] text-blue-700">
+                    <FileText className="w-3 h-3 text-blue-600" />
+                    <span className="truncate max-w-32" title={file.name}>{file.name}</span>
+                    {isUploading ? (
+                      <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPendingFiles(pendingFiles.filter((_, i) => i !== idx))}
+                        className="hover:text-blue-900"
+                        aria-label="Remove file"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="absolute bottom-2 right-2 flex items-center gap-2">
             <button 
               onClick={handleEmojiClick}
@@ -492,9 +635,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
               <ThumbsUp className="h-4 w-4" />
             </button>
-            <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
+            <label className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 cursor-pointer">
               <Paperclip className="h-4 w-4" />
-            </button>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length) {
+                    setPendingFiles(prev => [...prev, ...files]);
+                    // Auto-upload files when selected
+                    files.forEach(file => handleFileUpload(file));
+                  }
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
           </div>
           
           {/* Emoji Picker */}

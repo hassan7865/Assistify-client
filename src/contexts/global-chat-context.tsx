@@ -29,6 +29,8 @@ interface Visitor {
   visitor_chat_count?: number;
   hasUnreadMessages?: boolean;
   isDisconnected?: boolean;
+  first_name?: string;
+  last_name?: string;
   metadata?: {
     name?: string;
     email?: string;
@@ -53,6 +55,10 @@ interface ChatMessage {
   message: string;
   timestamp: string;
   seen_status?: 'delivered' | 'read';
+  // Extended fields for attachments
+  type?: 'text' | 'attachment' | 'system';
+  attachment_name?: string;
+  attachment_url?: string;
 }
 
 interface VisitorChatState {
@@ -94,6 +100,7 @@ interface GlobalChatContextType {
   closeMinimizedChat: (visitorId: string) => void;
   removeVisitorChatState: (visitorId: string) => void;
   updateMinimizedChatUnread: (visitorId: string, hasUnreadMessages: boolean) => void;
+  updateVisitorName: (visitorId: string, firstName: string) => void;
   
   // End Chat Dialog Actions
   setShowEndChatDialog: (show: boolean) => void;
@@ -123,6 +130,7 @@ type ChatAction =
   | { type: 'ADD_MINIMIZED_CHAT'; payload: Visitor }
   | { type: 'REMOVE_MINIMIZED_CHAT'; payload: string }
   | { type: 'UPDATE_MINIMIZED_CHAT_UNREAD'; payload: { visitorId: string; hasUnreadMessages: boolean } }
+  | { type: 'UPDATE_VISITOR_NAME'; payload: { visitorId: string; firstName: string } }
   | { type: 'UPDATE_VISITOR_CHAT_STATE'; payload: { visitorId: string; updates: Partial<VisitorChatState> } }
   | { type: 'REMOVE_VISITOR_CHAT_STATE'; payload: string }
   | { type: 'ADD_MESSAGE'; payload: { visitorId: string; message: ChatMessage } }
@@ -220,6 +228,19 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
           return chat;
         })
+      };
+    
+    case 'UPDATE_VISITOR_NAME':
+      return {
+        ...state,
+        selectedVisitor: state.selectedVisitor?.visitor_id === action.payload.visitorId
+          ? { ...state.selectedVisitor, first_name: action.payload.firstName }
+          : state.selectedVisitor,
+        minimizedChats: state.minimizedChats.map(chat =>
+          chat.visitor_id === action.payload.visitorId
+            ? { ...chat, first_name: action.payload.firstName }
+            : chat
+        )
       };
     
     case 'UPDATE_VISITOR_CHAT_STATE': {
@@ -425,6 +446,8 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           visitor_past_count: storedChat.visitor_past_count,
           visitor_chat_count: storedChat.visitor_chat_count,
           isDisconnected: storedChat.isDisconnected,
+          first_name: storedChat.first_name,
+          last_name: storedChat.last_name,
           metadata: storedChat.metadata,
           hasUnreadMessages: storedChat.hasUnreadMessages
         } as Visitor));
@@ -462,6 +485,8 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
         visitor_past_count: visitor.visitor_past_count,
         visitor_chat_count: visitor.visitor_chat_count,
         isDisconnected: visitor.isDisconnected,
+        first_name: visitor.first_name,
+        last_name: visitor.last_name,
         hasUnreadMessages: visitor.hasUnreadMessages,
         metadata: visitor.metadata,
         timestamp: new Date().toISOString()
@@ -569,16 +594,20 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   // WebSocket event handlers
   const createWebSocketHandlers = useCallback((visitor: Visitor) => {
     const onMessage = (data: any) => {
-      if (data.type === 'chat_message') {
+      if (data.type === 'chat_message' || data.type === 'attachment_message') {
         console.log(data);
+        const isAttachment = data.type === 'attachment_message' || data.attachment;
         const newMessage: ChatMessage = {
           id: data.message_id || `${Date.now()}-${Math.random()}`,
           sender: data.sender_type === 'visitor' ? 'visitor' : 
                  (data.sender_type === 'agent' || data.sender_type === 'client_agent') ? 'agent' : 'system',
           sender_id: data.sender_id,
-          message: data.message,
+          message: data.message || data.attachment?.file_name || '',
           timestamp: data.timestamp || new Date().toISOString(),
-          seen_status: 'delivered'
+          seen_status: 'delivered',
+          type: isAttachment ? 'attachment' : (data.sender_type === 'system' ? 'system' : 'text'),
+          attachment_name: data.attachment?.file_name,
+          attachment_url: data.attachment?.url
         };
 
         dispatch({
@@ -821,6 +850,10 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     dispatch({ type: 'UPDATE_MINIMIZED_CHAT_UNREAD', payload: { visitorId, hasUnreadMessages } });
   }, []);
 
+  const updateVisitorName = useCallback((visitorId: string, firstName: string) => {
+    dispatch({ type: 'UPDATE_VISITOR_NAME', payload: { visitorId, firstName } });
+  }, []);
+
   const handleEndChat = useCallback(() => {
     if (!state.selectedVisitor || !currentAgent?.id) return;
 
@@ -1058,6 +1091,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     closeMinimizedChat,
     removeVisitorChatState,
     updateMinimizedChatUnread,
+    updateVisitorName,
     setShowEndChatDialog: (show: boolean) => {
       dispatch({ type: 'SET_END_CHAT_DIALOG', payload: show });
     },
@@ -1087,6 +1121,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     closeMinimizedChat,
     removeVisitorChatState,
     updateMinimizedChatUnread,
+    updateVisitorName,
     handleEndChat,
     sendChatMessage,
     sendSystemMessage,
