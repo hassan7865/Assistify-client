@@ -70,7 +70,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
           />
           </div>
          
-          <span style={{ fontSize: '14px' }} className="font-medium text-white">Visitor #{visitor.visitor_id.substring(0, 8)}</span>
+          <span style={{ fontSize: '14px' }} className="font-medium text-white">{visitor.first_name || visitor.visitor_id.substring(0, 8)}</span>
           {getCountryFlag(visitor.metadata?.country)}
           {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent, 'h-3 w-3')}
           {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent, 'h-3 w-3')}

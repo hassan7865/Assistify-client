@@ -201,7 +201,9 @@ export default function HistoryPage() {
   return (
     <div className="flex h-screen bg-white">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
+        selectedConversation && !isClosing ? 'w-[55vw]' : 'w-full'
+      }`}>
         {/* Fixed Header */}
         <div className="p-4 pb-0">
           {/* Search and Controls */}
@@ -258,11 +260,11 @@ export default function HistoryPage() {
               </Button>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <span className="text-xs text-gray-600">
                 0 unread
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <Button 
                   variant="ghost" 
                   size="sm"
@@ -289,10 +291,10 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* Scrollable Table Container */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 custom-scrollbar">
+        {/* Table Container */}
+        <div className="flex-1 px-4 pb-4 min-h-0">
           {/* Table */}
-          <div className="bg-white border border-gray-200">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden h-full">
             {conversations.length === 0 && !loading ? (
               <div className="p-12 text-center">
                 <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -307,54 +309,56 @@ export default function HistoryPage() {
                 </p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-gray-200">
-                    <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-40">Name</TableHead>
-                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Agent</TableHead>
-                    <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-20">Time</TableHead>
-                    <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-16">Rating</TableHead>
-                    <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Messages</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {conversations.map((conversation, index) => (
-                    <TableRow 
-                      key={conversation._id} 
-                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
-                        selectedConversation?._id === conversation._id ? 'bg-blue-50 border-blue-200 shadow-sm' : ''
-                      }`}
-                      onClick={() => handleRowClick(conversation)}
-                    >
-                      <TableCell className="py-2 px-1 w-40">
-                        <div className="flex items-center gap-1">
-                          <input type="checkbox" className="rounded border-gray-300 w-3 h-3" />
-                          <span className="text-gray-600 text-xs truncate">{getConversationVisitorName(conversation)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <span className="text-gray-600 text-xs">{getConversationAgentName(conversation)}</span>
-                      </TableCell>
-                      <TableCell className="py-2 px-1 w-20 text-center">
-                        <span className="text-gray-600 text-xs">{formatTimeAgo(conversation.updated_at)}</span>
-                      </TableCell>
-                      <TableCell className="py-2 px-1 w-16 text-center">
-                        <span className="text-gray-600 text-xs">-</span>
-                      </TableCell>
-                      <TableCell className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="rounded-full w-5 h-5 flex items-center justify-center p-0 text-xs bg-gray-100 text-gray-700">
-                            {conversation.message_count}
-                          </Badge>
-                          <span className="text-gray-600 text-xs truncate max-w-xs">
-                            {conversation.last_message?.content || 'No messages'}
-                          </span>
-                        </div>
-                      </TableCell>
+              <div className="overflow-y-auto overscroll-contain custom-scrollbar h-full">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-white z-10">
+                    <TableRow className="border-b border-gray-200">
+                      <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-40">Name</TableHead>
+                      <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Agent</TableHead>
+                      <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-20">Time</TableHead>
+                      <TableHead className="font-bold text-gray-900 py-2 px-1 text-xs w-16">Rating</TableHead>
+                      <TableHead className="font-bold text-gray-900 py-2 px-3 text-xs">Messages</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {conversations.map((conversation, index) => (
+                      <TableRow 
+                        key={conversation._id} 
+                        className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all duration-200 ${
+                          selectedConversation?._id === conversation._id ? 'bg-blue-50 border-blue-200 shadow-sm' : ''
+                        }`}
+                        onClick={() => handleRowClick(conversation)}
+                      >
+                        <TableCell className="py-2 px-1 w-40">
+                          <div className="flex items-center gap-1">
+                            <input type="checkbox" className="rounded border-gray-300 w-3 h-3" />
+                            <span className="text-gray-600 text-xs truncate">{getConversationVisitorName(conversation)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-2 px-1 w-20">
+                          <span className="text-gray-600 text-xs">{getConversationAgentName(conversation)}</span>
+                        </TableCell>
+                        <TableCell className="py-2 px-1 w-20 text-center">
+                          <span className="text-gray-600 text-xs">{formatTimeAgo(conversation.updated_at)}</span>
+                        </TableCell>
+                        <TableCell className="py-2 px-1 w-16 text-center">
+                          <span className="text-gray-600 text-xs">-</span>
+                        </TableCell>
+                        <TableCell className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="rounded-full w-5 h-5 flex items-center justify-center p-0 text-xs bg-gray-100 text-gray-700">
+                              {conversation.message_count}
+                            </Badge>
+                            <span className="text-gray-600 text-xs truncate max-w-xs">
+                              {conversation.last_message?.content || 'No messages'}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </div>
 
@@ -367,7 +371,7 @@ export default function HistoryPage() {
         </div>
 
         {/* Right Sidebar - Conversation Details */}
-        <div className={`fixed right-0 top-[7rem] h-[calc(100vh-7rem)] w-[420px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${
+        <div className={`fixed right-0 top-[7rem] h-[calc(100vh-7rem)] w-[40vw] min-w-[320px] bg-white border-l border-gray-200 z-50 transform transition-transform duration-300 ease-in-out ${
           selectedConversation && !isClosing ? 'translate-x-0' : 'translate-x-full'
         }`}>
           {selectedConversation && (
