@@ -62,9 +62,9 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                 />
               </div>
               
-              {/* Visitor name or fallback to ID */}
+              {/* Visitor ID - always visible with better font */}
               <div className="text-white text-xs font-medium whitespace-nowrap ml-1 flex-1 text-center">
-                {chat.first_name?.trim() ? chat.first_name : `#${chat.visitor_id.substring(0, 8)}`}
+                #{chat.visitor_id.substring(0, 8)}
               </div>
               
               {/* Disconnected icon */}

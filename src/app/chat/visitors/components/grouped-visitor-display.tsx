@@ -149,12 +149,7 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
 
                 {/* Visitor Rows */}
                 <div className="divide-y divide-gray-100">
-                  {visitors.map((visitor) => {
-                    const displayName = (visitor.first_name && visitor.first_name.trim())
-                      ? visitor.first_name
-                      : `#${visitor.visitor_id.substring(0, 8)}`;
-
-                    return (
+                  {visitors.map((visitor) => (
                     <div
                       key={visitor.visitor_id}
                       className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -165,11 +160,13 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         {getStatusIcon(visitor)}
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-xs font-medium text-gray-900 truncate cursor-pointer">{displayName}</span>
+                            <span className="text-xs font-medium text-gray-900 truncate cursor-pointer">
+                              #{visitor.visitor_id.substring(0, 8)}
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
                             <p className="max-w-xs break-all">
-                            {displayName}
+                              Visitor ID: {visitor.visitor_id}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -281,7 +278,7 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         </Tooltip>
                       </div>
                     </div>
-                  )})}
+                  ))}
                 </div>
               </div>
             )}
