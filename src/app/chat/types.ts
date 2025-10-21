@@ -7,20 +7,26 @@ export interface Visitor {
   started_at?: string;
   session_id?: string;
   message_count?: number;
-  visitor_past_count?: number;
-  visitor_chat_count?: number;
   hasUnreadMessages?: boolean;
-  isDisconnected?: boolean;
-  first_name?: string;
-  last_name?: string;
+  unread_count?: number;
+  isDisconnected?: boolean; // Visitor left the site (offline)
+  hasLeft?: boolean; // Visitor ended the chat (can still continue)
   last_message?: {
     content: string;
     sender_type: string;
     timestamp: string;
   };
-  metadata?: {
-    name?: string;
+  visitor_details?: {
+    first_name?: string;
+    last_name?: string;
     email?: string;
+    contact?: string;
+    past_visit?: number;
+    chat_count?: number;
+    ip_address?: string;
+    client_id?: string;
+  };
+  metadata?: {
     ip_address?: string;
     country?: string;
     city?: string;
@@ -40,6 +46,7 @@ export interface ChatMessage {
   id: string;
   sender: 'visitor' | 'agent' | 'system';
   sender_id?: string;
+  sender_name?: string | null;
   message: string;
   timestamp: string;
   seen_status?: 'delivered' | 'read';
@@ -59,7 +66,7 @@ export interface MinimizedChat {
 
 // Utility functions for visitor data
 export const getVisitorName = (visitor: Visitor): string => {
-  return visitor.metadata?.name || 
+  return visitor.visitor_details?.first_name ||
          visitor.visitor_id?.substring(0, 8) || 
          'Anonymous';
 };

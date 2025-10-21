@@ -74,10 +74,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     hasStartedTyping,
     setHasStartedTyping,
     sendChatMessage,
-    sendSystemMessage,
     sendTypingIndicator,
     sendMessageSeen,
-    selectedVisitor
+    selectedVisitor,
+    continueChat
   } = useGlobalChat();
 
   // Auth (top-level hook usage)
@@ -105,17 +105,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleSendMessage = async () => {
     if (!canSend) return;
     if (chatMessage.trim()) {
-      // Check if this is the first message from the agent
-      const hasAgentMessages = chatMessages.some(msg => msg.sender === 'agent');
-      
-      if (!hasAgentMessages) {
-        const joinedMessage = `${currentAgent?.name || 'Agent'} has joined the chat`;
-        sendSystemMessage(joinedMessage);
-      
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      
-      sendChatMessage(chatMessage);
+      // Backend handles "Agent joined" system message when WebSocket connects
+      await sendChatMessage(chatMessage);
       setChatMessage("");
       // Stop typing indicator when message is sent
       sendTypingIndicator(false);
@@ -417,6 +408,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               chatMessages.map((message, index) => {
                 const isConsecutiveFromSameSender = index > 0 && 
                   chatMessages[index - 1].sender === message.sender &&
+                  chatMessages[index - 1].sender_id === message.sender_id && // Check actual sender ID for multi-agent
                   chatMessages[index - 1].sender !== 'system' && // Exclude system messages
                   new Date(message.timestamp).getTime() - new Date(chatMessages[index - 1].timestamp).getTime() < 30000;
               
@@ -447,8 +439,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                             <span className={`text-xs font-medium ${
                               message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
                             }`}>
-                              {message.sender === 'agent' ? (currentAgent?.name || 'Agent') : 
-                              message.sender == 'visitor' ? (visitor.first_name || visitor.visitor_id.substring(0, 8)) : '-'}
+                              {message.sender_name || 
+                               (message.sender === 'agent' ? (currentAgent?.name || 'Agent') : 
+                               message.sender === 'visitor' ? (visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8)) : '-')}
                               
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
@@ -514,12 +507,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 Connecting...
               </div>
             )}
-            
-            {!isConnected && !isConnecting && (
-              <div className="text-xs text-gray-500 text-center py-2">
-                Disconnected
-              </div>
-            )}
                   
             {/* Typing Indicator */}
             {isTyping && (
@@ -538,23 +525,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input Area or Agent Info Card */}
       {canSend ? (
-    <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border flex-[2] min-h-[120px]">
+    <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border flex-[2] min-h-[90px]">
     <div className="relative h-full">
             {visitor.isDisconnected ? (
-              /* Disconnected state - show message */
+              /* Visitor went offline - show message (no continue option) */
               <div className="relative h-full w-full">
                 <div className="absolute inset-0 flex items-center justify-center p-2 bg-gray-100">
                   <div className="text-center">
                     <div className="text-sm font-medium text-gray-900 mb-1">
-                      Visitor is disconnected
+                      {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has gone offline
                     </div>
                     <div className="text-xs text-gray-500">
-                      The visitor has left the chat session
+                      The visitor has left the site
                     </div>
                   </div>
                 </div>
               </div>
-            ) : !hasStartedTyping && chatMessages.length === 0 ? (
+            ) : visitor.hasLeft ? (
+              /* Visitor ended chat - show message with continue button */
+              <div className="relative h-full w-full">
+                <div className="absolute inset-0 flex items-center justify-center p-2 bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-gray-900 mb-2">
+                      {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has left the chat
+                    </div>
+                    <button
+                      onClick={continueChat}
+                      className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded cursor-pointer"
+                    >
+                      Continue chat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : !hasStartedTyping ? (
         /* Initial state - show centered message with hidden textarea */
         <div className="relative h-full w-full">
           {/* Hidden textarea to capture typing */}
@@ -565,24 +569,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             onBlur={handleBlur}
             placeholder=""
             className="absolute inset-0 text-sm border-none outline-none resize-none p-3 h-full w-full opacity-0"
-            disabled={!isConnected}
+            disabled={visitor.isDisconnected || visitor.hasLeft}
           />
-          {/* Centered message overlay */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
-            <span 
-              style={{ 
-                fontWeight: 100,
-                color: 'black',
-                fontSize: '16px',
-                lineHeight: 'normal',
-                padding: '10px',
-                textAlign: 'center'
-              }}
-            >
-              You're viewing this chat
-              Start typing to join the chat.
-            </span>
-          </div>
+          {/* Centered message overlay - only show when textarea is empty */}
+          {!chatMessage && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
+              <div 
+                style={{ 
+                  fontWeight: 100,
+                  color: 'black',
+                  fontSize: '16px',
+                  lineHeight: 'normal',
+                  padding: '10px',
+                  textAlign: 'center'
+                }}
+              >
+                You're viewing this chat<br />
+                Start typing to join the chat.
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Typing state - show textarea with action buttons */
@@ -595,7 +601,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             onBlur={handleBlur}
             placeholder=""
             className="text-sm border-none outline-none resize-none p-3 w-full h-full"
-            disabled={!isConnected}
+            disabled={visitor.isDisconnected || visitor.hasLeft}
           />
           {/* Action Buttons - positioned at bottom right */}
           {/* Pending attachments chips */}
@@ -822,6 +828,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       selectedPastChat.messages.map((message, index) => {
                         const isConsecutiveFromSameSender = index > 0 && 
                           selectedPastChat.messages![index - 1].sender_type === message.sender_type &&
+                          selectedPastChat.messages![index - 1].sender_id === message.sender_id && // Check actual sender ID for multi-agent
                           message.sender_type !== 'system';
                         
                         const isSystemMessage = message.sender_type === 'system';
@@ -851,7 +858,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                       message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
                                     }`}>
                                       {message.sender_type == 'client_agent' ? (selectedPastChat.agent_info?.name || 'Agent') : 
-                                      message.sender_type == 'visitor' ? (visitor.first_name || visitor.visitor_id.substring(0, 8)) : '-'}
+                                      message.sender_type == 'visitor' ? (visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8)) : '-'}
                                       
                                     </span>
                                     <span className="text-xs text-gray-500 ml-2">
@@ -907,7 +914,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 : 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200'
             }`}
           >
-            Past chats ({visitor.visitor_chat_count || 0})
+            Past chats ({visitor.visitor_details?.chat_count || 0})
           </button>
         </div>
       </div>

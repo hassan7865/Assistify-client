@@ -37,21 +37,17 @@ export const useVisitors = () => {
     setLoading(true);
     
     try {
-      const [pendingResult, activeResult] = await Promise.allSettled([
+      // Fetch from both endpoints
+      const [pendingResponse, activeResponse] = await Promise.all([
         api.get(`/chat/pending-visitors/${CLIENT_ID}`),
         api.get(`/chat/active-visitors/${CLIENT_ID}`)
       ]);
 
-      let pendingVisitorsData: Visitor[] = [];
-      if (pendingResult.status === 'fulfilled') {
-        pendingVisitorsData = pendingResult.value.data.visitors || [];
-      }
+      // pending-visitors returns both PENDING and UNRESOLVED statuses from backend
+      const pendingVisitorsData: Visitor[] = pendingResponse.data.visitors || [];
+      const activeVisitorsData: Visitor[] = activeResponse.data.visitors || [];
 
-      let activeVisitorsData: Visitor[] = [];
-      if (activeResult.status === 'fulfilled') {
-        activeVisitorsData = activeResult.value.data.visitors || [];
-      }
-
+      // Filter out disconnected/closed visitors
       const filteredPendingVisitors = pendingVisitorsData.filter(
         (visitor: Visitor) => {
           const status = visitor.status?.toLowerCase();
@@ -112,8 +108,11 @@ export const useVisitors = () => {
       });
 
       if (response.data.success) {
-        // Extract the counts and other data from API response
-        const { session_id, metadata, visitor_past_count, visitor_chat_count, first_name, last_name } = response.data;
+        // Extract data from API response
+        const { session_id, metadata, visitor_details } = response.data;
+        
+        // Use visitor_details from response or keep current
+        const finalVisitorDetails = visitor_details || currentVisitor?.visitor_details;
         
         // Create updated visitor with agent info and counts
         const updatedVisitor = {
@@ -124,10 +123,7 @@ export const useVisitors = () => {
           status: "active",
           session_id: session_id,
           metadata: metadata || currentVisitor?.metadata || {},
-          visitor_past_count: visitor_past_count || 0,
-          visitor_chat_count: visitor_chat_count || 0,
-          first_name: first_name || null,
-          last_name: last_name || null,
+          visitor_details: finalVisitorDetails,
           // Use API response data if available, otherwise keep current data
           ...(response.data.visitor || {})
         };
@@ -189,8 +185,8 @@ export const useVisitors = () => {
     return visitorList.filter(
       (visitor) =>
         visitor.visitor_id.toLowerCase().includes(term) ||
-        visitor.metadata?.name?.toLowerCase().includes(term) ||
-        visitor.metadata?.email?.toLowerCase().includes(term) ||
+        visitor.visitor_details?.first_name?.toLowerCase().includes(term) ||
+        visitor.visitor_details?.email?.toLowerCase().includes(term) ||
         visitor.status.toLowerCase().includes(term) ||
         visitor.agent_name?.toLowerCase().includes(term)
     );
@@ -260,12 +256,33 @@ export const useVisitors = () => {
       ));
     };
 
+    const handleVisitorDetailsUpdated = ({ visitor_details, source }: { visitor_details: any; source: 'agent' | 'visitor' }) => {
+      // Update visitors based on IP address
+      const ipAddress = visitor_details.ip_address;
+      if (!ipAddress) return;
+
+      const updateVisitor = (visitor: any) => {
+        if (visitor.visitor_details?.ip_address === ipAddress || visitor.metadata?.ip_address === ipAddress) {
+          return {
+            ...visitor,
+            visitor_details: visitor_details
+          };
+        }
+        return visitor;
+      };
+
+      setVisitors(prev => prev.map(updateVisitor));
+      setPendingVisitors(prev => prev.map(updateVisitor));
+      setActiveVisitors(prev => prev.map(updateVisitor));
+    };
+
 
     // Register event listeners
     globalEventEmitter.on(EVENTS.NEW_VISITOR, handleNewVisitor);
     globalEventEmitter.on(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
     globalEventEmitter.on(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
     globalEventEmitter.on(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, handleUpdateLastMessage);
+    globalEventEmitter.on(EVENTS.VISITOR_DETAILS_UPDATED, handleVisitorDetailsUpdated);
 
     // Cleanup event listeners
     return () => {
@@ -273,6 +290,7 @@ export const useVisitors = () => {
       globalEventEmitter.off(EVENTS.VISITOR_TAKEN, handleVisitorTaken);
       globalEventEmitter.off(EVENTS.VISITOR_DISCONNECTED, handleVisitorDisconnected);
       globalEventEmitter.off(EVENTS.UPDATE_VISITOR_LAST_MESSAGE, handleUpdateLastMessage);
+      globalEventEmitter.off(EVENTS.VISITOR_DETAILS_UPDATED, handleVisitorDetailsUpdated);
     };
   }, [fetchVisitors, removeVisitor]);
 

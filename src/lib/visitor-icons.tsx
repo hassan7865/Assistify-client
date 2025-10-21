@@ -11,7 +11,7 @@ import {
   FaAndroid,
   FaUbuntu
 } from 'react-icons/fa';
-import {  MessageSquareMore, MessageSquareWarning } from 'lucide-react';
+import {  MessageSquareMore, MessageSquareWarning, Eye } from 'lucide-react';
 import { ReactCountryFlag } from "react-country-flag";
 import { BsExclamation } from 'react-icons/bs';
 
@@ -241,19 +241,26 @@ export const getStatusIcon = (visitor: { status?: string; agent_id?: string }) =
   if (visitor.status === 'active') {
     return (
       <div className="w-5 h-5 bg-lime-500 rounded-sm flex items-center justify-center">
-        <MessageSquareMore className="w-4 h-4 text-white" />
+        <MessageSquareMore className="w-3 h-3 text-white" />
       </div>
     );
   }
   if (visitor.status === 'pending') {
     return (
       <div className="w-5 h-5 bg-[#cd3642] rounded-sm flex items-center justify-center">
-        <BsExclamation className="w-4 h-4 text-white" />
+        <BsExclamation className="w-3 h-3 text-white" />
+      </div>
+    );
+  }
+  if (visitor.status === 'unresolved') {
+    return (
+      <div className="w-5 h-5 bg-blue-400 rounded-sm flex items-center justify-center">
+        <Eye className="w-3 h-3 text-white" />
       </div>
     );
   }
   return (
-    <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
+    <div className="w-5 h-5 bg-gray-400 rounded-full"></div>
   );
 };
 

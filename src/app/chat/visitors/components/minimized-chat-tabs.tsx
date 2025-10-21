@@ -62,38 +62,39 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                 />
               </div>
               
-              {/* Visitor ID - always visible with better font */}
-              <div className="text-white text-xs font-medium whitespace-nowrap ml-1 flex-1 text-center">
-                #{chat.visitor_id.substring(0, 8)}
+              {/* Visitor Name - always visible with better font */}
+              <div className="text-white text-xs font-medium whitespace-nowrap ml-1 flex-1 text-center truncate">
+                {chat.visitor_details?.first_name || `#${chat.visitor_id.substring(0, 8)}`}
               </div>
               
-              {/* Disconnected icon */}
-              {chat.isDisconnected && (
-                <div className="bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0 ml-2" title="Visitor disconnected">
-                  <WifiOff className="h-2.5 w-2.5" />
-                </div>
-              )}
-              
-              {/* Unread message count badge */}
-              {chat.hasUnreadMessages && !chat.isDisconnected && (
-                <div className="bg-orange-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0 ml-2">
-                  !
-                </div>
-              )}
-              
-              {/* Close button - only visible on hover and not for active chats */}
+              {/* Badge: Disconnected icon OR Message count - transforms to close button on hover */}
               {!isActive && (
-                <button
+                <div
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Simply close the minimized chat (no session cleanup if disconnected)
                     onClose(chat.visitor_id);
                   }}
-                  className={`h-4 w-4 ${chat.isDisconnected ? 'bg-red-500 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-600'} rounded-full flex items-center justify-center flex-shrink-0 ml-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300`}
-                  title={chat.isDisconnected ? 'Close chat (visitor disconnected)' : 'Close chat'}
+                  className={`${
+                    chat.isDisconnected 
+                      ? 'bg-red-500 hover:bg-red-600' 
+                      : chat.hasUnreadMessages 
+                        ? 'bg-orange-500 hover:bg-orange-600' 
+                        : 'bg-gray-500 hover:bg-gray-600'
+                  } text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center flex-shrink-0 ml-2 cursor-pointer transition-all duration-200`}
+                  title={chat.isDisconnected ? "Close chat (visitor disconnected)" : "Close chat"}
                 >
-                  <X className="h-3 w-3 text-white" />
-                </button>
+                  <span className="group-hover:hidden">
+                    {chat.isDisconnected ? (
+                      <WifiOff className="h-2 w-2" />
+                    ) : (
+                      <span className="text-xs">
+                       { chat.message_count || 0}
+                        </span>
+                      
+                    )}
+                  </span>
+                  <X className="h-3 w-3 hidden group-hover:block" />
+                </div>
               )}
             </div>
           );

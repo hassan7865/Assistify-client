@@ -60,7 +60,10 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
   const getGroupDisplayName = (groupKey: string, visitors: Visitor[]) => {
     switch (groupBy) {
       case 'Activity':
-        return groupKey === 'incoming' ? 'Incoming chats' : 'Currently served';
+        if (groupKey === 'unresolved') return 'Active Visitors';
+        if (groupKey === 'pending') return 'Incoming chats';
+        if (groupKey === 'active') return 'Currently served';
+        return groupKey;
       case 'Country':
         return groupKey;
       case 'Serving agent':
@@ -85,10 +88,15 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
   // Filter out empty groups and sort by visitor count (descending) except for Activity
   const sortedGroups = Object.entries(groupedVisitors)
     .filter(([, visitors]) => visitors.length > 0) // Only show groups with visitors
-    .sort(([, a], [, b]) => {
+    .sort(([keyA, a], [keyB, b]) => {
       if (groupBy === 'Activity') {
-        // For Activity, show incoming first, then served
-        return a[0]?.agent_id ? 1 : -1;
+        // For Activity, show in priority order: unresolved, pending, active
+        const priorityOrder: { [key: string]: number } = {
+          'unresolved': 1,
+          'pending': 2,
+          'active': 3
+        };
+        return (priorityOrder[keyA] || 999) - (priorityOrder[keyB] || 999);
       }
       return b.length - a.length;
     });
@@ -144,7 +152,8 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                    <div className="w-36 text-xs font-semibold text-gray-700">Viewing</div>
                    <div className="w-40 text-xs font-semibold text-gray-700">Referrer</div>
                    <div className="w-28 text-xs font-semibold text-gray-700 text-center">Served by</div>
-                   <div className="flex-1 text-xs font-semibold text-gray-700">Messages</div>
+                   <div className="w-16 text-xs font-semibold text-gray-700 text-center">Visit</div>
+                   <div className="w-16 text-xs font-semibold text-gray-700 text-center">Chats</div>
                  </div>
 
                 {/* Visitor Rows */}
@@ -161,12 +170,12 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="text-xs font-medium text-gray-900 truncate cursor-pointer">
-                              #{visitor.visitor_id.substring(0, 8)}
+                              {visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8) || 'Unknown'}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
                             <p className="max-w-xs break-all">
-                              Visitor ID: {visitor.visitor_id}
+                               {visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8) || 'Unknown'}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -262,20 +271,18 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         </Tooltip>
                       </div>
                       
-                      {/* Last Message */}
-                      <div className="flex-1 min-w-0">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                             <span className="text-xs text-gray-700 truncate block cursor-pointer">
-                               {visitor.last_message?.content || 'No messages yet'}
-                             </span>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
-                            <p className="max-w-xs break-words">
-                              {visitor.last_message?.content || 'No messages yet'}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
+                      {/* Visit */}
+                      <div className="w-16 flex items-center justify-center">
+                        <span className="text-xs text-gray-700">
+                          {visitor.visitor_details?.past_visit || 0}
+                        </span>
+                      </div>
+                      
+                      {/* Chats */}
+                      <div className="w-16 flex items-center justify-center">
+                        <span className="text-xs text-gray-700">
+                          {visitor.visitor_details?.chat_count || 0}
+                        </span>
                       </div>
                     </div>
                   ))}

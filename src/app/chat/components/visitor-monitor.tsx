@@ -105,24 +105,38 @@ const VisitorMonitor: React.FC = () => {
       visitorDataCache.current.set(visitorId, {
         session_id: data.session_id,
         metadata: data.visitor_metadata,
+        visitor_details: data.visitor_details,
         timestamp: data.timestamp,
         client_id: data.client_id
       });
       
-      // Add visitor request instead of notification
+      // Don't add request or play sound for UNRESOLVED visitors (just browsing)
+      // They will be notified when they send a message (PENDING status)
+      
+      // Emit global event to notify other components (for visitor list refresh)
+      globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
+        visitor_id: visitorId,
+        metadata: data.metadata,
+        visitor_details: data.visitor_details,
+        timestamp: new Date().toISOString()
+      });
+    } else if (data.type == "visitor_pending") {
+      const visitorId = data.visitor_id;
+      
+      // Visitor sent a message and is now PENDING (waiting for agent response)
+      // Add visitor request and play notification sound
       addRequest({
         visitor_id: visitorId,
         metadata: data.metadata
       });
 
-      // Emit global event to notify other components
+      // Refresh visitor lists to move to "Incoming chats"
       globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
         visitor_id: visitorId,
-        metadata: data.metadata,
         timestamp: new Date().toISOString()
       });
 
-      // Play sound for new visitor
+      // Play sound for pending visitor (needs attention)
       playNotificationSound();
     } else if (data.type == "visitor_assigned") {
       const visitorId = data.visitor_id;
@@ -141,6 +155,7 @@ const VisitorMonitor: React.FC = () => {
         assigned_agent_id: assignedAgentId,
         session_id: data.session_id || storedVisitorData?.session_id, // Prefer session_id from visitor_assigned event, fallback to stored
         metadata: data.visitor_metadata || storedVisitorData?.metadata, // Prefer metadata from visitor_assigned event, fallback to stored
+        visitor_details: data.visitor_details || storedVisitorData?.visitor_details, // Include visitor_details
         timestamp: new Date().toISOString()
       };
       
@@ -164,6 +179,46 @@ const VisitorMonitor: React.FC = () => {
       
       // Clean up stored data
       visitorDataCache.current.delete(visitorId);
+    } else if (data.type == "visitor_details_changed") {
+      // Handle visitor details update (from agent or visitor)
+      globalEventEmitter.emit(EVENTS.VISITOR_DETAILS_UPDATED, {
+        visitor_details: data.visitor_details,
+        source: data.source, // 'agent' or 'visitor'
+        timestamp: new Date().toISOString()
+      });
+    } else if (data.type == "visitor_ended_chat") {
+      // Visitor clicked "End Chat" button
+      const visitorId = data.visitor_id;
+      const sessionId = data.session_id;
+      
+      // Emit event to mark visitor as disconnected (similar to visitor_left)
+      globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
+        visitor_id: visitorId,
+        session_id: sessionId,
+        ended_by: 'visitor',
+        timestamp: new Date().toISOString()
+      });
+    } else if (data.type == "visitor_active") {
+      // Status changed from PENDING/UNRESOLVED → ACTIVE (agent started chatting)
+      const visitorId = data.visitor_id;
+      
+      // Remove serve request from sidebar immediately
+      removeRequest(visitorId);
+      
+      // Refresh immediately - backend has already committed the transaction
+      globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
+        visitor_id: visitorId,
+        timestamp: new Date().toISOString()
+      });
+    } else if (data.type == "visitor_unresolved") {
+      // Status changed from ACTIVE → UNRESOLVED (all agents left)
+      const visitorId = data.visitor_id;
+      
+      // Refresh immediately - backend has already committed the transaction
+      globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
+        visitor_id: visitorId,
+        timestamp: new Date().toISOString()
+      });
     }
   }, [getCurrentAgent, addRequest, removeRequest, playNotificationSound]);
 

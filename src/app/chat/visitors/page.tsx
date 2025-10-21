@@ -39,11 +39,11 @@ const VisitorPage = () => {
 
   // Enhanced visitor click handler that auto-takes visitor
   const handleVisitorClickEnhanced = (visitor: Visitor) => {
-    // Take the visitor if not already taken, which will open the chat after moving to active list
-    if (!visitor.agent_id && CURRENT_AGENT?.id) {
+    // Only auto-take PENDING visitors (not UNRESOLVED)
+    if (visitor.status?.toLowerCase() === 'pending' && !visitor.agent_id && CURRENT_AGENT?.id) {
       takeVisitorById(visitor.visitor_id, false);
     } else {
-      // If already taken, just open the chat
+      // For UNRESOLVED or already taken visitors, just open the chat
       handleVisitorClick(visitor);
     }
   };
@@ -54,21 +54,21 @@ const VisitorPage = () => {
     
     switch (groupBy) {
       case 'Activity':
-        // Separate visitors into three categories based on message count and agent assignment
+        // Separate visitors into three categories based on session status
+        const unresolvedVisitors = allVisitors.filter(visitor => 
+          visitor.status?.toLowerCase() === 'unresolved'
+        );
+        const pendingVisitors = allVisitors.filter(visitor => 
+          visitor.status?.toLowerCase() === 'pending'
+        );
         const activeVisitors = allVisitors.filter(visitor => 
-          !visitor.agent_id && (visitor.message_count === 0 || !visitor.message_count)
-        );
-        const incomingChatsWithMessages = allVisitors.filter(visitor => 
-          !visitor.agent_id && visitor.message_count && visitor.message_count > 0
-        );
-        const servedVisitorsWithAgent = allVisitors.filter(visitor => 
-          visitor.agent_id
+          visitor.status?.toLowerCase() === 'active'
         );
         
         return {
-          'active': activeVisitors,
-          'incoming': incomingChatsWithMessages,
-          'served': servedVisitorsWithAgent
+          'unresolved': unresolvedVisitors,
+          'pending': pendingVisitors,
+          'active': activeVisitors
         };
       
       case 'Country':
@@ -174,8 +174,9 @@ const VisitorPage = () => {
       
       default:
         return {
-          'incoming': incomingChats,
-          'served': servedVisitors
+          'unresolved': allVisitors.filter(v => v.status?.toLowerCase() === 'unresolved'),
+          'pending': allVisitors.filter(v => v.status?.toLowerCase() === 'pending'),
+          'active': allVisitors.filter(v => v.status?.toLowerCase() === 'active')
         };
     }
   };

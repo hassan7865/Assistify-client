@@ -6,6 +6,7 @@ import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
 import { Visitor, ChatMessage, getChatDuration } from '../../types';
 import api from '@/lib/axios';
 import { useGlobalChat } from '@/contexts/global-chat-context';
+import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 
 interface VisitorInfoPanelProps {
   visitor: Visitor;
@@ -20,22 +21,35 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
   const [currentDuration, setCurrentDuration] = useState('');
   const [timerActive, setTimerActive] = useState(true);
   const [isNameEditing, setIsNameEditing] = useState(false);
+  const [isEmailEditing, setIsEmailEditing] = useState(false);
+  const [isPhoneEditing, setIsPhoneEditing] = useState(false);
+  const [isNotesEditing, setIsNotesEditing] = useState(false);
   const [savedName, setSavedName] = useState('');
+  const [savedEmail, setSavedEmail] = useState('');
+  const [savedPhone, setSavedPhone] = useState('');
+  const [savedNotes, setSavedNotes] = useState('');
   
   const { updateVisitorName } = useGlobalChat();
 
   useEffect(() => {
-    // Initialize from visitor.first_name (from API) or metadata.name (legacy)
-    const initialName = visitor.first_name || visitor.metadata?.name || '';
+    // Initialize from visitor_details
+    const initialName = visitor.visitor_details?.first_name || '';
+    const initialEmail = visitor.visitor_details?.email  || '';
+    const initialPhone = visitor.visitor_details?.contact || '';
+    
     setName(initialName);
     setSavedName(initialName);
-    setEmail(visitor.metadata?.email || '');
+    setEmail(initialEmail);
+    setSavedEmail(initialEmail);
+    setPhone(initialPhone);
+    setSavedPhone(initialPhone);
     
-    // If there's no saved name, start in editing mode
-    if (!initialName) {
-      setIsNameEditing(true);
-    }
-  }, [visitor.first_name, visitor.metadata?.name, visitor.metadata?.email]);
+    // If there's no saved value, start in editing mode
+    setIsNameEditing(!initialName);
+    setIsEmailEditing(!initialEmail);
+    setIsPhoneEditing(!initialPhone);
+    setIsNotesEditing(true); // Notes always start in editing mode
+  }, [visitor.visitor_details?.first_name, visitor.visitor_details?.email, visitor.visitor_details?.contact]);
 
   // Timer effect - updates every second unless visitor is disconnected
   useEffect(() => {
@@ -62,31 +76,104 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     return () => clearInterval(interval);
   }, [visitor.started_at, visitor.isDisconnected, timerActive]);
 
+  // Listen for visitor details updates from visitor (widget side)
+  useEffect(() => {
+    const handleVisitorDetailsUpdated = ({ visitor_details, source }: { visitor_details: any; source: 'agent' | 'visitor' }) => {
+      // Only update form if the change came from visitor and it matches current visitor's IP
+      const visitorIp = visitor.visitor_details?.ip_address || visitor.metadata?.ip_address;
+      if (source === 'visitor' && visitor_details.ip_address === visitorIp) {
+        // Update form fields
+        if (visitor_details.first_name) {
+          setName(visitor_details.first_name);
+          setSavedName(visitor_details.first_name);
+          setIsNameEditing(false);
+        }
+        if (visitor_details.email) {
+          setEmail(visitor_details.email);
+          setSavedEmail(visitor_details.email);
+          setIsEmailEditing(false);
+        }
+        if (visitor_details.contact) {
+          setPhone(visitor_details.contact);
+          setSavedPhone(visitor_details.contact);
+          setIsPhoneEditing(false);
+        }
+      }
+    };
+
+    globalEventEmitter.on(EVENTS.VISITOR_DETAILS_UPDATED, handleVisitorDetailsUpdated);
+
+    return () => {
+      globalEventEmitter.off(EVENTS.VISITOR_DETAILS_UPDATED, handleVisitorDetailsUpdated);
+    };
+  }, [visitor.visitor_details?.ip_address, visitor.metadata?.ip_address]);
+
+  // Save visitor details using visitor-details API
+  const saveVisitorDetails = async (updates: { first_name?: string; email?: string; contact?: string }) => {
+    const ipAddress = visitor.visitor_details?.ip_address || visitor.metadata?.ip_address;
+    if (!ipAddress) {
+      console.error('No IP address available to save visitor details');
+      return false;
+    }
+
+    try {
+      const response = await api.post('/chat/visitor-details', {
+        ip_address: ipAddress,
+        first_name: updates.first_name !== undefined ? updates.first_name : savedName || null,
+        last_name: null,
+        email: updates.email !== undefined ? updates.email : savedEmail || null,
+        contact: updates.contact !== undefined ? updates.contact : savedPhone || null,
+      });
+      
+      if (response.data) {
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error saving visitor details:', error);
+      return false;
+    }
+  };
+
   // Handle saving visitor name
   const handleSaveName = async () => {
     if (!name.trim()) return;
 
-    try {
-      const response = await api.put('/chat/save-visitor-name', {
-        visitor_id: visitor.visitor_id,
-        session_id: visitor.session_id,
-        first_name: name.trim(),
-        last_name: null
-      });
-      
-      if (response.data.success) {
-        setSavedName(name.trim());
-        setIsNameEditing(false);
-        
-        // Update visitor object locally
-        visitor.first_name = name.trim();
-        
-        // Update global state and localStorage
-        updateVisitorName(visitor.visitor_id, name.trim());
-      }
-    } catch (error) {
-      console.error('Error saving visitor name:', error);
+    const success = await saveVisitorDetails({ first_name: name.trim() });
+    if (success) {
+      setSavedName(name.trim());
+      setIsNameEditing(false);
+      updateVisitorName(visitor.visitor_id, name.trim());
     }
+  };
+
+  // Handle saving email
+  const handleSaveEmail = async () => {
+    if (!email.trim()) return;
+
+    const success = await saveVisitorDetails({ email: email.trim() });
+    if (success) {
+      setSavedEmail(email.trim());
+      setIsEmailEditing(false);
+    }
+  };
+
+  // Handle saving phone
+  const handleSavePhone = async () => {
+    if (!phone.trim()) return;
+
+    const success = await saveVisitorDetails({ contact: phone.trim() });
+    if (success) {
+      setSavedPhone(phone.trim());
+      setIsPhoneEditing(false);
+    }
+  };
+
+  // Handle saving notes
+  const handleSaveNotes = () => {
+    // For now, just save locally (can be extended to save to backend)
+    setSavedNotes(notes.trim());
+    setIsNotesEditing(false);
   };
 
   // Handle Enter key press on name input
@@ -97,14 +184,58 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     }
   };
 
-  // Handle double-click to enable editing
-  const handleNameDoubleClick = () => {
-    setIsNameEditing(true);
+  // Handle Enter key press on email input
+  const handleEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEmail();
+    }
+  };
+
+  // Handle Enter key press on phone input
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSavePhone();
+    }
+  };
+
+  // Handle Enter key press on notes textarea
+  const handleNotesKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveNotes();
+    }
+  };
+
+  // Handle click to enable editing
+  const handleNameClick = () => {
+    if (savedName) {
+      setIsNameEditing(true);
+    }
+  };
+
+  const handleEmailClick = () => {
+    if (savedEmail) {
+      setIsEmailEditing(true);
+    }
+  };
+
+  const handlePhoneClick = () => {
+    if (savedPhone) {
+      setIsPhoneEditing(true);
+    }
+  };
+
+  const handleNotesClick = () => {
+    if (savedNotes) {
+      setIsNotesEditing(true);
+    }
   };
 
   return (
-    <div className="flex flex-col overflow-y-auto h-full custom-scrollbar">
-      <div className="p-3 space-y-3">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="p-3 space-y-3 overflow-y-auto custom-scrollbar">
         {/* Visitor Profile */}
         <div className="space-y-3">
           <div className="flex items-start space-x-3">
@@ -115,7 +246,7 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
                 className="w-8 h-8 object-contain"
               />
             </div>
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 min-w-0">
               {isNameEditing || !savedName ? (
                 <input
                   type="text"
@@ -123,42 +254,83 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={handleNameKeyDown}
+                  onBlur={handleSaveName}
                   autoFocus={isNameEditing}
-                  className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+                  className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
                 />
               ) : (
                 <div
-                  onDoubleClick={handleNameDoubleClick}
-                  className="w-full px-2 py-1 border border-transparent text-xs font-semibold bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100"
-                  title="Double-click to edit"
+                  onClick={handleNameClick}
+                  className="w-full h-7 px-2 py-1 border border-transparent text-sm font-semibold bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
+                  title={savedName}
                 >
                   {savedName}
                 </div>
               )}
-              <input
-                type="email"
-                placeholder="Add email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-              />
-             
+              
+              {isEmailEditing || !savedEmail ? (
+                <input
+                  type="email"
+                  placeholder="Add email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleEmailKeyDown}
+                  onBlur={handleSaveEmail}
+                  autoFocus={isEmailEditing}
+                  className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+                />
+              ) : (
+                <div
+                  onClick={handleEmailClick}
+                  className="w-full h-7 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
+                  title={savedEmail}
+                >
+                  {savedEmail}
+                </div>
+              )}
             </div>
           </div>
-          <input
-                type="tel"
-                placeholder="Add phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-              />
-          <textarea
-            placeholder="Add visitor notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-sm"
-          />
+          
+          {isPhoneEditing || !savedPhone ? (
+            <input
+              type="tel"
+              placeholder="Add phone number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={handlePhoneKeyDown}
+              onBlur={handleSavePhone}
+              autoFocus={isPhoneEditing}
+              className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+            />
+          ) : (
+            <div
+              onClick={handlePhoneClick}
+              className="w-full h-7 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
+              title={savedPhone}
+            >
+              {savedPhone}
+            </div>
+          )}
+          {isNotesEditing || !savedNotes ? (
+            <textarea
+              placeholder="Add visitor notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onKeyDown={handleNotesKeyDown}
+              onBlur={handleSaveNotes}
+              autoFocus={isNotesEditing}
+              rows={3}
+              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-sm"
+            />
+          ) : (
+            <div
+              onClick={handleNotesClick}
+              className="w-full px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 min-h-[4.5rem] overflow-y-auto"
+              title="Click to edit"
+            >
+              {savedNotes}
+            </div>
+          )}
         </div>
 
       
@@ -179,13 +351,13 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
           <div className="grid grid-cols-3 divide-x divide-gray-200">
             {/* Past Visits */}
             <div className="flex flex-col items-center justify-center px-2">
-              <div className="text-sm font-bold text-gray-900">{visitor.visitor_past_count || 0}</div>
+              <div className="text-sm font-bold text-gray-900">{visitor.visitor_details?.past_visit || 0}</div>
               <div className="text-xs text-gray-600 text-center">Past visits</div>
             </div>
             
             {/* Past Chats */}
             <div className="flex flex-col items-center justify-center px-2">
-              <div className="text-sm font-bold text-gray-900">{visitor.visitor_chat_count || 0}</div>
+              <div className="text-sm font-bold text-gray-900">{visitor.visitor_details?.chat_count || 0}</div>
               <div className="text-xs text-gray-600 text-center">Past chats</div>
             </div>
 

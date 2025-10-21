@@ -1,5 +1,5 @@
 import axios from 'axios';
-export const API_BASE_URL = 'https://api.hailouchat.com';
+export const API_BASE_URL = 'http://localhost:8000';
 export const FULL_API_BASE_URL = `${API_BASE_URL}/api/v1`;
 
 const api = axios.create({

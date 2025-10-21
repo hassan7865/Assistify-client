@@ -15,11 +15,18 @@ export interface StoredMinimizedChat {
   agent_id?: string;
   started_at?: string;
   message_count?: number;
-  visitor_past_count?: number;
-  visitor_chat_count?: number;
   isDisconnected?: boolean;
-  first_name?: string;
-  last_name?: string;
+  unread_count?: number;
+  visitor_details?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    contact?: string;
+    past_visit?: number;
+    chat_count?: number;
+    ip_address?: string;
+    client_id?: string;
+  };
   metadata?: {
     name?: string;
     email?: string;

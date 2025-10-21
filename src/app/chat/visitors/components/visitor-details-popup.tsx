@@ -35,10 +35,11 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
   setShowEndChatDialog,
   onChatEnded
 }) => {
-  const { chatMessages, isSwitchingVisitor, isEndingChat, currentAgent } = useGlobalChat();
+  const { chatMessages, isSwitchingVisitor, isEndingChat, currentAgent, hasActiveConnection, closeMinimizedChat } = useGlobalChat();
   
-  // Check if current agent can end this chat (only the assigned agent can end it)
-  const canEndChat = visitor.agent_id && currentAgent?.id && visitor.agent_id === currentAgent.id;
+  // Determine if we should show end chat dialog or just close
+  // Show dialog only if: connected, visitor hasn't left, and visitor is not offline
+  const shouldShowEndDialog = hasActiveConnection && !visitor.hasLeft && !visitor.isDisconnected && currentAgent?.id;
 
 
 
@@ -48,7 +49,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
   return (
     <div 
       key={visitor.visitor_id} 
-      className="fixed right-0 top-0 h-full w-[600px] bg-gray-100 shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50 border-l border-gray-500"
+      className="fixed right-0 top-0 h-full w-[600px] bg-gray-100 shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50 border-l border-gray-500 pb-4"
     >
       {/* Switching Overlay */}
       {isSwitchingVisitor && (
@@ -70,7 +71,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
           />
           </div>
          
-          <span style={{ fontSize: '14px' }} className="font-medium text-white">{visitor.first_name || visitor.visitor_id.substring(0, 8)}</span>
+          <span style={{ fontSize: '14px' }} className="font-medium text-white">{visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8)}</span>
           {getCountryFlag(visitor.metadata?.country)}
           {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent, 'h-3 w-3')}
           {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent, 'h-3 w-3')}
@@ -90,23 +91,26 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
               }
             }}
             className={`h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] cursor-pointer`}
-            title={visitor.isDisconnected ? 'Minimize chat (visitor disconnected)' : canEndChat ? 'Minimize chat' : 'Close chat (not assigned to you)'}
+            title={visitor.isDisconnected ? 'Minimize chat (visitor disconnected)' : 'Minimize chat'}
           >
             <Minus className="h-3 w-3 text-white" />
           </button>
           <button 
             onClick={() => {
-              // If visitor is disconnected, just close the dialog without ending session
-              if (visitor.isDisconnected) {
-                onMinimize(); // Just minimize it
-              } else if (canEndChat) {
-                onClose();
-              }
+              // Always call onClose - handleCloseWithDialog will determine the behavior
+              // based on connection status, visitor state, etc.
+              onClose();
             }}
-            className={`h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] ${
-              !canEndChat && !visitor.isDisconnected ? 'cursor-not-allowed' : 'cursor-pointer'
-            }`}
-            title={visitor.isDisconnected ? 'Close chat (visitor disconnected)' : canEndChat ? 'Close chat' : 'Only the assigned agent can end this chat'}
+            className="h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] cursor-pointer"
+            title={
+              visitor.isDisconnected 
+                ? 'Close chat (visitor offline)' 
+                : visitor.hasLeft
+                  ? 'Close chat (visitor left)' 
+                  : !hasActiveConnection 
+                    ? 'Close chat (not connected)' 
+                    : 'Leave chat'
+            }
           >
             <X className="h-3 w-3 text-white" />
           </button>
@@ -114,64 +118,41 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {showEndChatDialog ? (
-          /* End Chat Dialog Content */
+        {showEndChatDialog && shouldShowEndDialog ? (
+          /* Leave Chat Dialog Content */
           <div className="flex-1 flex items-center justify-center p-4">
             <div className="max-w-sm w-full">
-              {canEndChat ? (
-                <>
-                  <h3 className="text-xs font-semibold text-gray-900 mb-2">
-                    End chat?
-                  </h3>
-                  <p className="text-xs text-gray-600 mb-4">
-                    To minimize this chat instead, click the minimize button or outside the chat window.
-                  </p>
-                  
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      onClick={onEndChat}
-                      disabled={isEndingChat}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isEndingChat ? (
-                        <div className="flex items-center gap-1">
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                          <span>Ending...</span>
-                        </div>
-                      ) : (
-                        'End chat'
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowEndChatDialog(false)}
-                      disabled={isEndingChat}
-                      className="text-xs px-3 py-1 rounded-none border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xs font-semibold text-gray-900 mb-2">
-                    Cannot end chat
-                  </h3>
-                  <p className="text-xs text-gray-600 mb-4">
-                    Only Agent {visitor.agent_name} can end this chat. You can close this dialog instead.
-                  </p>
-                  
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowEndChatDialog(false)}
-                      className="text-xs px-3 py-1 rounded-none border border-gray-300"
-                    >
-                      Close
-                    </Button>
-                  </div>
-                </>
-              )}
+              <h3 className="text-xs font-semibold text-gray-900 mb-2">
+                Leave chat?
+              </h3>
+              <p className="text-xs text-gray-600 mb-4">
+                You will leave this conversation. The visitor will remain connected and can still chat with other agents.
+              </p>
+              
+              <div className="flex gap-2 justify-end">
+                <Button
+                  onClick={onEndChat}
+                  disabled={isEndingChat}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1 rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isEndingChat ? (
+                    <div className="flex items-center gap-1">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                      <span>Leaving...</span>
+                    </div>
+                  ) : (
+                    'Leave chat'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEndChatDialog(false)}
+                  disabled={isEndingChat}
+                  className="text-xs px-3 py-1 rounded-none border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           </div>
         ) : (

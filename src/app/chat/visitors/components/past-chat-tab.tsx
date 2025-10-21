@@ -7,7 +7,9 @@ interface Visitor {
   metadata?: {
     ip_address?: string;
   };
-  visitor_chat_count?: number;
+  visitor_details?: {
+    chat_count?: number;
+  };
 }
 
 interface ChatHistoryRecord {
