@@ -23,6 +23,11 @@ export interface ChatConversation {
     email: string;
     role: string;
   };
+  session_rating?: {
+    session_id: string;
+    rating: string;
+    note?: string;
+  };
   metadata: {
     name?: string;
     email?: string;

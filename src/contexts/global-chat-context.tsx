@@ -78,6 +78,7 @@ interface ChatMessage {
 
 interface VisitorChatState {
   chatMessages: ChatMessage[];
+  pastChatHistory: any[];
   isConnected: boolean;
   isConnecting: boolean;
   isTyping: boolean;
@@ -104,6 +105,7 @@ interface GlobalChatContextType {
   hasActiveConnection: boolean; // True if WebSocket is actually connected
   isConnecting: boolean;
   chatMessages: ChatMessage[];
+  pastChatHistory: any[];
   isTyping: boolean;
   isLoadingHistory: boolean;
   isEndingChat: boolean;
@@ -179,6 +181,7 @@ const initialState: ChatState = {
 
 const createDefaultChatState = (): VisitorChatState => ({
   chatMessages: [],
+  pastChatHistory: [],
   isConnected: false,
   isConnecting: false,
   isTyping: false,
@@ -617,11 +620,36 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           seen_status: msg.seen_status || 'delivered'
         }));
         
+        // Also fetch past history for the same visitor (by IP address)
+        let pastHistory: any[] = [];
+        if (visitor.metadata?.ip_address && currentAgent?.id) {
+          try {
+            const historyResponse = await api.get(`/chat/history/${currentAgent.id}`, {
+              params: {
+                page: 1,
+                page_size: 100,
+                ip_address: visitor.metadata.ip_address
+              },
+              signal: controller.signal
+            });
+
+            if (historyResponse.data?.success && historyResponse.data?.data) {
+              pastHistory = historyResponse.data.data.conversations || [];
+            }
+          } catch (historyError) {
+            console.warn('Failed to fetch past history in fetchChatHistory:', historyError);
+          }
+        }
+        
         dispatch({
           type: 'UPDATE_VISITOR_CHAT_STATE',
           payload: {
             visitorId: visitor.visitor_id,
-            updates: { chatMessages: formattedMessages, isLoadingHistory: false }
+            updates: { 
+              chatMessages: formattedMessages, 
+              pastChatHistory: pastHistory,
+              isLoadingHistory: false 
+            }
           }
         });
 
@@ -797,11 +825,12 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
       }
     });
 
-    // Fetch latest conversation data before connecting WebSocket
+    // Fetch latest conversation data and past history before connecting WebSocket
     try {
-      const response = await api.get(`/chat/conversation/${visitor.session_id}`);
-      if (response.data?.success && response.data?.data) {
-        const conversation = response.data.data;
+      // Fetch conversation data
+      const conversationResponse = await api.get(`/chat/conversation/${visitor.session_id}`);
+      if (conversationResponse.data?.success && conversationResponse.data?.data) {
+        const conversation = conversationResponse.data.data;
         const messages = conversation.messages || [];
         
         // Convert conversation messages to ChatMessage format
@@ -830,6 +859,38 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
             }
           }
         });
+      }
+
+      // Fetch past history data for the same visitor (by IP address)
+      if (visitor.metadata?.ip_address && currentAgent?.id) {
+        try {
+          const historyResponse = await api.get(`/chat/history/${currentAgent.id}`, {
+            params: {
+              page: 1,
+              page_size: 100,
+              ip_address: visitor.metadata.ip_address
+            }
+          });
+
+          if (historyResponse.data?.success && historyResponse.data?.data) {
+            const historyData = historyResponse.data.data;
+            const pastHistory = historyData.conversations || [];
+            
+            // Update visitor with past history data
+            dispatch({
+              type: 'UPDATE_VISITOR_CHAT_STATE',
+              payload: {
+                visitorId: visitor.visitor_id,
+                updates: { 
+                  pastChatHistory: pastHistory,
+                  lastActivity: Date.now()
+                }
+              }
+            });
+          }
+        } catch (historyError) {
+          console.warn('Failed to fetch past history data:', historyError);
+        }
       }
     } catch (error) {
       console.warn('Failed to fetch conversation data before WebSocket connection:', error);
@@ -1030,35 +1091,24 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
         timestamp: new Date().toISOString()
     });
 
-    const cleanup = () => {
-      if (state.selectedVisitor) {
-        // Remove from all maps and states
-        dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: state.selectedVisitor.visitor_id });
-        dispatch({ type: 'REMOVE_MINIMIZED_CHAT', payload: state.selectedVisitor.visitor_id });
-        
-        // Mark visitor as closed before emitting event to prevent reopening
-        const closedVisitor = { ...state.selectedVisitor, status: 'closed' };
-        dispatch({ type: 'SET_SELECTED_VISITOR', payload: closedVisitor });
-        
-        // Emit visitor disconnected event to clean up all contexts
-        globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
-          visitor_id: state.selectedVisitor.visitor_id,
-          session_id: state.selectedVisitor.session_id,
-          reason: 'agent_ended_chat',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
-      dispatch({ type: 'SET_CHAT_OPEN', payload: false });
-      dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
-      dispatch({ type: 'SET_ENDING_CHAT', payload: false });
-    };
+    // Immediately close the dialog after sending the socket message
+    dispatch({ type: 'SET_END_CHAT_DIALOG', payload: false });
+    dispatch({ type: 'SET_CHAT_OPEN', payload: false });
+    dispatch({ type: 'SET_SELECTED_VISITOR', payload: null });
+    dispatch({ type: 'SET_ENDING_CHAT', payload: false });
 
-    if (success) {
-      setTimeout(cleanup, 1000);
-    } else {
-      cleanup();
+    // Clean up visitor data in background
+    if (state.selectedVisitor) {
+      dispatch({ type: 'REMOVE_VISITOR_CHAT_STATE', payload: state.selectedVisitor.visitor_id });
+      dispatch({ type: 'REMOVE_MINIMIZED_CHAT', payload: state.selectedVisitor.visitor_id });
+      
+      // Emit visitor disconnected event to clean up all contexts
+      globalEventEmitter.emit(EVENTS.VISITOR_DISCONNECTED, {
+        visitor_id: state.selectedVisitor.visitor_id,
+        session_id: state.selectedVisitor.session_id,
+        reason: 'agent_ended_chat',
+        timestamp: new Date().toISOString()
+      });
     }
   }, [state.selectedVisitor, currentAgent]);
 
@@ -1317,6 +1367,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     hasActiveConnection: currentChatState.isConnected, // Same as isConnected (kept for backwards compatibility)
     isConnecting: currentChatState.isConnecting,
     chatMessages: currentChatState.chatMessages,
+    pastChatHistory: currentChatState.pastChatHistory,
     isTyping: currentChatState.isTyping,
     isLoadingHistory: currentChatState.isLoadingHistory,
     isEndingChat: state.isEndingChat,

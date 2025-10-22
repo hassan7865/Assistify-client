@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCountryFlag, getBrowserIcon, getOSIcon } from '@/lib/visitor-icons';
 import { Visitor, ChatMessage, getChatDuration } from '../../types';
 import api from '@/lib/axios';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
+import { ChevronDown, X } from 'lucide-react';
 
 interface VisitorInfoPanelProps {
   visitor: Visitor;
@@ -29,7 +30,96 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
   const [savedPhone, setSavedPhone] = useState('');
   const [savedNotes, setSavedNotes] = useState('');
   
-  const { updateVisitorName } = useGlobalChat();
+  // Tags state
+  const [availableTags, setAvailableTags] = useState<Array<{tag_id: string, tag_name: string}>>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isTagsDropdownOpen, setIsTagsDropdownOpen] = useState(false);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const tagsDropdownRef = useRef<HTMLDivElement>(null);
+  
+  const { updateVisitorName, isConnected } = useGlobalChat();
+
+  // Fetch available tags
+  const fetchAvailableTags = async () => {
+    try {
+      setLoadingTags(true);
+      const response = await api.get('/chat/tags');
+      if (response.data) {
+        setAvailableTags(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+
+  // Fetch current session tags
+  const fetchSessionTags = async () => {
+    if (!visitor.session_id) return;
+    
+    try {
+      const response = await api.get(`/chat/session-tags/${visitor.session_id}`);
+      if (response.data?.tags) {
+        setSelectedTags(response.data.tags);
+      }
+    } catch (error) {
+      console.error('Error fetching session tags:', error);
+    }
+  };
+
+  // Add tag to session
+  const addTagToSession = async (tagName: string) => {
+    if (!visitor.session_id || selectedTags.includes(tagName)) return;
+    
+    try {
+      const response = await api.post('/chat/session-tags/add', {
+        session_id: visitor.session_id,
+        tags: [tagName]
+      });
+      
+      if (response.data?.tags) {
+        setSelectedTags(response.data.tags);
+      }
+    } catch (error) {
+      console.error('Error adding tag:', error);
+    }
+  };
+
+  // Remove tag from session
+  const removeTagFromSession = async (tagName: string) => {
+    if (!visitor.session_id) return;
+    
+    try {
+      const response = await api.post('/chat/session-tags/remove', {
+        session_id: visitor.session_id,
+        tags: [tagName]
+      });
+      
+      if (response.data?.tags) {
+        setSelectedTags(response.data.tags);
+      }
+    } catch (error) {
+      console.error('Error removing tag:', error);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagsDropdownRef.current && !tagsDropdownRef.current.contains(event.target as Node)) {
+        setIsTagsDropdownOpen(false);
+      }
+    };
+
+    if (isTagsDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isTagsDropdownOpen]);
 
   useEffect(() => {
     // Initialize from visitor_details
@@ -50,6 +140,12 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     setIsPhoneEditing(!initialPhone);
     setIsNotesEditing(true); // Notes always start in editing mode
   }, [visitor.visitor_details?.first_name, visitor.visitor_details?.email, visitor.visitor_details?.contact]);
+
+  // Fetch tags when component mounts
+  useEffect(() => {
+    fetchAvailableTags();
+    fetchSessionTags();
+  }, [visitor.session_id]);
 
   // Timer effect - updates every second unless visitor is disconnected
   useEffect(() => {
@@ -248,88 +344,146 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
             </div>
             <div className="flex-1 min-w-0">
               {isNameEditing || !savedName ? (
-                <input
-                  type="text"
-                  placeholder="Add name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={handleNameKeyDown}
-                  onBlur={handleSaveName}
-                  autoFocus={isNameEditing}
-                  className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <input
+                      type="text"
+                      placeholder="Add name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onKeyDown={handleNameKeyDown}
+                      onBlur={handleSaveName}
+                      autoFocus={isNameEditing}
+                      className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                    <p>Click to edit</p>
+                  </TooltipContent>
+                </Tooltip>
               ) : (
-                <div
-                  onClick={handleNameClick}
-                  className="w-full h-7 px-2 py-1 border border-transparent text-sm font-semibold bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
-                  title={savedName}
-                >
-                  {savedName}
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      onClick={handleNameClick}
+                      className="w-full h-7 px-2 py-1 border border-transparent text-sm font-semibold bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
+                      title={savedName}
+                    >
+                      {savedName}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                    <p>Click to edit</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
               
-              {isEmailEditing || !savedEmail ? (
-                <input
-                  type="email"
-                  placeholder="Add email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={handleEmailKeyDown}
-                  onBlur={handleSaveEmail}
-                  autoFocus={isEmailEditing}
-                  className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-                />
+              <div className="mt-1">
+                {isEmailEditing || !savedEmail ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <input
+                      type="email"
+                      placeholder="Add email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={handleEmailKeyDown}
+                      onBlur={handleSaveEmail}
+                      autoFocus={isEmailEditing}
+                      className="w-full h-7 px-2 py-2 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                    <p>Click to edit</p>
+                  </TooltipContent>
+                </Tooltip>
               ) : (
-                <div
-                  onClick={handleEmailClick}
-                  className="w-full h-7 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
-                  title={savedEmail}
-                >
-                  {savedEmail}
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      onClick={handleEmailClick}
+                      className="w-full h-7 px-2 py-2 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
+                      title={savedEmail}
+                    >
+                      {savedEmail}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                    <p>Click to edit</p>
+                  </TooltipContent>
+                </Tooltip>
               )}
+              </div>
             </div>
           </div>
           
           {isPhoneEditing || !savedPhone ? (
-            <input
-              type="tel"
-              placeholder="Add phone number"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onKeyDown={handlePhoneKeyDown}
-              onBlur={handleSavePhone}
-              autoFocus={isPhoneEditing}
-              className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <input
+                  type="tel"
+                  placeholder="Add phone number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onKeyDown={handlePhoneKeyDown}
+                  onBlur={handleSavePhone}
+                  autoFocus={isPhoneEditing}
+                  className="w-full h-7 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
+                />
+              </TooltipTrigger>
+              <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                <p>Click to edit</p>
+              </TooltipContent>
+            </Tooltip>
           ) : (
-            <div
-              onClick={handlePhoneClick}
-              className="w-full h-7 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
-              title={savedPhone}
-            >
-              {savedPhone}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  onClick={handlePhoneClick}
+                  className="w-full h-7 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 overflow-hidden text-ellipsis whitespace-nowrap block"
+                  title={savedPhone}
+                >
+                  {savedPhone}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                <p>Click to edit</p>
+              </TooltipContent>
+            </Tooltip>
           )}
           {isNotesEditing || !savedNotes ? (
-            <textarea
-              placeholder="Add visitor notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onKeyDown={handleNotesKeyDown}
-              onBlur={handleSaveNotes}
-              autoFocus={isNotesEditing}
-              rows={3}
-              className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-sm"
-            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <textarea
+                  placeholder="Add visitor notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onKeyDown={handleNotesKeyDown}
+                  onBlur={handleSaveNotes}
+                  autoFocus={isNotesEditing}
+                  rows={3}
+                  className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-sm"
+                />
+              </TooltipTrigger>
+              <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                <p>Click to edit</p>
+              </TooltipContent>
+            </Tooltip>
           ) : (
-            <div
-              onClick={handleNotesClick}
-              className="w-full px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 min-h-[4.5rem] overflow-y-auto"
-              title="Click to edit"
-            >
-              {savedNotes}
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  onClick={handleNotesClick}
+                  className="w-full px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-sm cursor-pointer hover:bg-gray-100 min-h-[4.5rem] overflow-y-auto"
+                  title="Click to edit"
+                >
+                  {savedNotes}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                <p>Click to edit</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
 
@@ -338,11 +492,79 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
         {/* Tags */}
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-gray-900">Tags</h3>
-          <input
-            type="text"
-            placeholder="Add chat tags"
-            className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-sm"
-          />
+          
+          {/* Tags Dropdown */}
+          <div className="relative" ref={tagsDropdownRef}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setIsTagsDropdownOpen(!isTagsDropdownOpen)}
+                  disabled={!isConnected}
+                  className={`w-full px-2 py-1 border text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent rounded-sm flex items-center justify-between ${
+                    isConnected 
+                      ? 'border-gray-300 bg-white text-gray-700' 
+                      : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  <span className={isConnected ? 'text-gray-500' : 'text-gray-400'}>
+                    {isConnected ? 'Add tags' : 'Connect to add tags'}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 ${isConnected ? 'text-gray-400' : 'text-gray-300'}`} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
+                <p>Tags are only editable during the chat</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            {isTagsDropdownOpen && isConnected && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-sm shadow-lg z-50 max-h-32 overflow-y-auto">
+                {loadingTags ? (
+                  <div className="px-2 py-1 text-xs text-gray-500">Loading tags...</div>
+                ) : availableTags.length > 0 ? (
+                  availableTags
+                    .filter(tag => !selectedTags.includes(tag.tag_name))
+                    .map((tag, index) => (
+                      <button
+                        key={`${tag.tag_id}-${index}`}
+                        onClick={() => {
+                          addTagToSession(tag.tag_name);
+                          setIsTagsDropdownOpen(false);
+                        }}
+                        className="w-full px-2 py-1 text-xs text-left hover:bg-gray-100 flex items-center justify-between"
+                      >
+                        <span>{tag.tag_name}</span>
+                      </button>
+                    ))
+                ) : (
+                  <div className="px-2 py-1 text-xs text-gray-500">No tags available</div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {/* Selected Tags Chips - Below dropdown */}
+          {selectedTags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {selectedTags.map((tag, index) => (
+                <div
+                  key={`${tag}-${index}`}
+                  className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-sm border border-gray-200"
+                >
+                  <span>{tag}</span>
+                  <button
+                    onClick={() => removeTagFromSession(tag)}
+                    disabled={!isConnected}
+                    className={`hover:bg-gray-200 rounded-sm p-0.5 ${
+                      isConnected ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                    }`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
 

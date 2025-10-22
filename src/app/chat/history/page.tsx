@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronLeft, ChevronRight, User, Loader2, MessageCircle, ChevronDown } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, User, Loader2, MessageCircle, ChevronDown, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -342,7 +342,19 @@ export default function HistoryPage() {
                           <span className="text-gray-600 text-xs">{formatTimeAgo(conversation.updated_at)}</span>
                         </TableCell>
                         <TableCell className="py-2 px-1 w-16 text-center">
-                          <span className="text-gray-600 text-xs">-</span>
+                          {conversation.session_rating ? (
+                            <div className="flex items-center justify-center">
+                              {conversation.session_rating.rating === 'thumbs_up' ? (
+                                <ThumbsUp className="w-4 h-4 text-green-600" />
+                              ) : conversation.session_rating.rating === 'thumbs_down' ? (
+                                <ThumbsDown className="w-4 h-4 text-red-600" />
+                              ) : (
+                                <span className="text-gray-600 text-xs">{conversation.session_rating.rating}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="py-2 px-3">
                           <div className="flex items-center gap-2">
@@ -379,6 +391,10 @@ export default function HistoryPage() {
               conversation={selectedConversation} 
               onClose={closeConversationDetails}
               isClosing={isClosing}
+              onRefreshHistory={() => fetchChatHistory({
+                page: pagination.page,
+                page_size: pagination.page_size,
+              })}
             />
           )}
         </div>

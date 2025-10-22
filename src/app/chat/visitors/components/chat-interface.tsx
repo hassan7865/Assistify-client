@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Smile, ThumbsUp, Paperclip, MessageCircle, FileText, X } from 'lucide-react';
+import { Smile, ThumbsUp, ThumbsDown, Paperclip, MessageCircle, FileText, X } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { useAuth } from '@/contexts/auth-context';
@@ -41,6 +41,11 @@ interface ChatHistoryRecord {
     timestamp: string;
     sender_name?: string; // Agent name for client_agent messages, visitor name for visitor messages
   }>;
+  session_rating?: {
+    session_id: string;
+    rating: string;
+    note?: string;
+  };
   satisfaction?: number;
 }
 
@@ -90,7 +95,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     sendMessageSeen,
     sendRatingRequest,
     selectedVisitor,
-    continueChat
+    continueChat,
+    isEndingChat,
+    handleEndChat
   } = useGlobalChat();
 
   // Auth (top-level hook usage)
@@ -574,7 +581,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <div className="relative h-full w-full">
                 <div className="absolute inset-0 flex items-center justify-center p-2 bg-gray-100">
                   <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900 mb-1">
+                    <div 
+                      className="mb-1"
+                      style={{
+                        fontWeight: 100,
+                        color: 'black',
+                        fontSize: '16px',
+                        lineHeight: 'normal',
+                      }}
+                    >
                       {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has gone offline
                     </div>
                     <div className="text-xs text-gray-500">
@@ -588,15 +603,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <div className="relative h-full w-full">
                 <div className="absolute inset-0 flex items-center justify-center p-2 bg-gray-50">
                   <div className="text-center">
-                    <div className="text-sm font-medium text-gray-900 mb-2">
-                      {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has left the chat
-                    </div>
-                    <button
-                      onClick={continueChat}
-                      className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded cursor-pointer"
+                    <div 
+                      className="flex flex-wrap items-center justify-center gap-2"
+                      style={{
+                        fontWeight: 100,
+                        color: 'black',
+                        fontSize: '16px',
+                        lineHeight: 'normal',
+                      }}
                     >
-                      Continue chat
-                    </button>
+                      <span>
+                        {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has left the chat
+                      </span>
+                      <button
+                        onClick={continueChat}
+                        className="text-xs px-2 py-1 bg-transparent hover:bg-gray-100 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-sm cursor-pointer"
+                      >
+                        Continue chat
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -610,7 +635,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             onKeyPress={handleKeyPress}
             onBlur={handleBlur}
             placeholder=""
-            className={`text-sm border-none outline-none resize-none p-3 w-full h-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
+            className={`border-none outline-none resize-none p-3 w-full h-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
+            style={{
+              fontWeight: 100,
+              color: 'black',
+              fontSize: '16px',
+              lineHeight: 'normal',
+            }}
             disabled={visitor.isDisconnected || visitor.hasLeft}
           />
           {/* Initial overlay text - hidden when there's text OR after typing has started */}
@@ -805,7 +836,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           {chat.agent_info?.name || '—'}
                         </td>
                         <td className="p-2 text-[11px]">
-                          <span className="text-gray-500">—</span>
+                          {chat.session_rating ? (
+                            <div className="flex items-center justify-center">
+                              {chat.session_rating.rating === 'thumbs_up' ? (
+                                <ThumbsUp className="w-4 h-4 text-green-600" />
+                              ) : chat.session_rating.rating === 'thumbs_down' ? (
+                                <ThumbsDown className="w-4 h-4 text-red-600" />
+                              ) : (
+                                <span className="text-gray-600 text-xs">{chat.session_rating.rating}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-xs">—</span>
+                          )}
                         </td>
                         <td className="p-2 text-[11px] text-gray-600">
                           {new Date(chat.created_at).toLocaleDateString('en-US', {
@@ -865,11 +908,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   <div className="space-y-3">
                     <div className="flex gap-2 text-sm">
                       <span className="text-gray-600 text-xs w-24">Rating:</span>
-                      <span className="text-gray-900 text-xs">—</span>
+                      <span className="text-gray-900 text-xs">
+                        {selectedPastChat.session_rating ? (
+                          <div className="flex items-center gap-1">
+                            {selectedPastChat.session_rating.rating === 'thumbs_up' ? (
+                              <div className="flex items-center gap-1">
+                                <ThumbsUp className="w-4 h-4 text-green-600" />
+                                <span className="text-green-600 text-sm">Good</span>
+                              </div>
+                            ) : selectedPastChat.session_rating.rating === 'thumbs_down' ? (
+                              <div className="flex items-center gap-1">
+                                <ThumbsDown className="w-4 h-4 text-red-600" />
+                                <span className="text-red-600 text-sm">Bad</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-600 text-xs">{selectedPastChat.session_rating.rating}</span>
+                            )}
+                          </div>
+                        ) : (
+                          '—'
+                        )}
+                      </span>
                     </div>
                     <div className="flex gap-2 text-sm">
                       <span className="text-gray-600 text-xs w-24">Comment:</span>
-                      <span className="text-gray-900 text-xs">—</span>
+                      <span className="text-gray-900 text-xs">
+                        {selectedPastChat.session_rating?.note || '—'}
+                      </span>
                     </div>
 
                     <div className="flex gap-2 text-sm">
