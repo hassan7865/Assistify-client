@@ -7,12 +7,12 @@ import { UserRoleEnum } from '@/lib/constants';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 import { FULL_API_BASE_URL } from '@/lib/axios';
 import SSEManager from '@/lib/sse-manager';
+import { playNewVisitorSound, playPendingVisitorSound, playVisitorMessageSound } from '@/lib/sound-utils';
 
 const VisitorMonitor: React.FC = () => {
   const { user } = useAuth();
   const { addRequest, removeRequest } = useVisitorRequests();
   const sseManager = SSEManager.getInstance();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Store visitor data from new_visitor events to use later in visitor_assigned events
   const visitorDataCache = useRef<Map<string, any>>(new Map());
@@ -46,55 +46,6 @@ const VisitorMonitor: React.FC = () => {
     return null;
   }, [user]);
 
-  // Initialize audio element
-  const initializeAudio = useCallback(() => {
-    if (audioRef.current) return; // Already initialized
-    
-    try {
-      audioRef.current = new Audio('/notification-sound.mp3');
-      audioRef.current.volume = 0.6;
-      audioRef.current.preload = 'auto';
-      
-      audioRef.current.addEventListener('error', () => {
-        // Don't throw error, just log warning
-      });
-      
-      // Try to load the audio
-      audioRef.current.load();
-    } catch (error) {
-      // Ignore audio initialization errors
-    }
-  }, []);
-
-  // Play notification sound using native HTML5 Audio
-  const playNotificationSound = useCallback(() => {
-    if (audioRef.current) {
-      try {
-      // Reset to beginning and play
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        // Ignore autoplay errors
-      });
-    } catch (error) {
-      // Ignore audio play errors
-    }
-  } else {
-    // Audio not initialized yet, initialize it
-    initializeAudio();
-    // Try to play after a short delay to allow initialization
-    setTimeout(() => {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {
-          // Ignore autoplay errors
-        });
-      }
-    }, 100);
-  }
-  }, [initializeAudio]);
-
-
-
   // SSE message handler
   const handleSSEMessage = useCallback((data: any) => {
     
@@ -110,8 +61,8 @@ const VisitorMonitor: React.FC = () => {
         client_id: data.client_id
       });
       
-      // Don't add request or play sound for UNRESOLVED visitors (just browsing)
-      // They will be notified when they send a message (PENDING status)
+      // Play sound for new visitor arrival (UNRESOLVED state)
+      playNewVisitorSound();
       
       // Emit global event to notify other components (for visitor list refresh)
       globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
@@ -136,8 +87,19 @@ const VisitorMonitor: React.FC = () => {
         timestamp: new Date().toISOString()
       });
 
-      // Play sound for pending visitor (needs attention)
-      playNotificationSound();
+      // Play sound for pending visitor (status changed to PENDING)
+      playPendingVisitorSound();
+    } else if (data.type == "visitor_message") {
+      const visitorId = data.visitor_id;
+      
+      // Play sound for visitor message received (even when agent not connected to chat)
+      playVisitorMessageSound();
+      
+      // Emit global event to notify other components
+      globalEventEmitter.emit(EVENTS.NEW_VISITOR, {
+        visitor_id: visitorId,
+        timestamp: new Date().toISOString()
+      });
     } else if (data.type == "visitor_assigned") {
       const visitorId = data.visitor_id;
       const assignedAgentId = data.assigned_agent_id;
@@ -220,37 +182,7 @@ const VisitorMonitor: React.FC = () => {
         timestamp: new Date().toISOString()
       });
     }
-  }, [getCurrentAgent, addRequest, removeRequest, playNotificationSound]);
-
-  // Initialize audio immediately when component mounts
-  useEffect(() => {
-    initializeAudio();
-    
-    // Add a global click handler to enable audio context (for autoplay restrictions)
-    const enableAudio = () => {
-      if (audioRef.current) {
-        // Try to play and immediately pause to enable audio context
-        try {
-          audioRef.current.play().then(() => {
-            audioRef.current?.pause();
-          }).catch(() => {
-            // Ignore autoplay errors
-          });
-        } catch (error) {
-          // Ignore autoplay errors
-        }
-      }
-    };
-    
-    // Enable audio on first user interaction
-    document.addEventListener('click', enableAudio, { once: true });
-    document.addEventListener('keydown', enableAudio, { once: true });
-    
-    return () => {
-      document.removeEventListener('click', enableAudio);
-      document.removeEventListener('keydown', enableAudio);
-    };
-  }, [initializeAudio]);
+  }, [getCurrentAgent, addRequest, removeRequest]);
 
   // Initialize SSE connection when component mounts
   useEffect(() => {
@@ -271,18 +203,6 @@ const VisitorMonitor: React.FC = () => {
       }
     }
   }, [user?.role, user?.user_id, getCurrentAgent, handleSSEMessage]); // Depend on role and user_id to handle user changes
-
-  // Cleanup audio when component unmounts
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
 
   // This component doesn't render anything visible
   return null;

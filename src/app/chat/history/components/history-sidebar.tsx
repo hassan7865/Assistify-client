@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { X, User, Edit2, MapPin, Monitor, Globe, Download } from 'lucide-react';
+import { X, User, Edit2, MapPin, Monitor, Globe, Download, Save, Check } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { ChatConversation } from '../hooks/use-chat-history';
 import { getCountryFlag, getBrowserIcon, getOSIcon, getDeviceIcon } from '@/lib/visitor-icons';
 import { getConversationVisitorName, getConversationAgentName } from '../../types';
 import HistoryChatInterface from './history-chat-interface';
+import api from '@/lib/axios';
 
 interface HistorySidebarProps {
   conversation: ChatConversation;
@@ -22,10 +23,17 @@ interface HistorySidebarProps {
 
 const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, isClosing = false }) => {
   const [activeTab, setActiveTab] = useState('transcript');
-  const [name, setName] = useState(conversation.first_name || conversation.metadata?.name || '');
-  const [email, setEmail] = useState(conversation.metadata?.email || '');
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(conversation.visitor_details?.first_name || conversation.metadata?.name || '');
+  const [email, setEmail] = useState(conversation.visitor_details?.email || conversation.metadata?.email || '');
+  const [phone, setPhone] = useState(conversation.visitor_details?.contact || "");
   const [notes, setNotes] = useState("");
+  
+  // Edit states
+  const [isNameEditing, setIsNameEditing] = useState(false);
+  const [isEmailEditing, setIsEmailEditing] = useState(false);
+  const [isPhoneEditing, setIsPhoneEditing] = useState(false);
+  const [isNotesEditing, setIsNotesEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const formatTime = (timestamp: string) => {
     const now = new Date();
@@ -69,6 +77,71 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
     const { city, region, country } = conversation.metadata || {};
     const parts = [city, region, country].filter(Boolean);
     return parts.length > 0 ? parts.join(', ') : null;
+  };
+
+  // Save visitor details using visitor-details API
+  const saveVisitorDetails = async (updates: { first_name?: string; email?: string; contact?: string }) => {
+    const ipAddress = conversation.metadata?.ip_address;
+    if (!ipAddress) {
+      console.error('No IP address available to save visitor details');
+      return false;
+    }
+
+    try {
+      setSaving(true);
+      const response = await api.post('/chat/visitor-details', {
+        ip_address: ipAddress,
+        first_name: updates.first_name !== undefined ? updates.first_name : name || null,
+        last_name: null,
+        email: updates.email !== undefined ? updates.email : email || null,
+        contact: updates.contact !== undefined ? updates.contact : phone || null,
+      });
+      
+      if (response.data) {
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error saving visitor details:', error);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle saving visitor name
+  const handleSaveName = async () => {
+    if (!name.trim()) return;
+
+    const success = await saveVisitorDetails({ first_name: name.trim() });
+    if (success) {
+      setIsNameEditing(false);
+    }
+  };
+
+  // Handle saving email
+  const handleSaveEmail = async () => {
+    if (!email.trim()) return;
+
+    const success = await saveVisitorDetails({ email: email.trim() });
+    if (success) {
+      setIsEmailEditing(false);
+    }
+  };
+
+  // Handle saving phone
+  const handleSavePhone = async () => {
+    if (!phone.trim()) return;
+
+    const success = await saveVisitorDetails({ contact: phone.trim() });
+    if (success) {
+      setIsPhoneEditing(false);
+    }
+  };
+
+  // Handle saving notes (local only)
+  const handleSaveNotes = () => {
+    setIsNotesEditing(false);
   };
 
   return (
@@ -147,28 +220,154 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                     />
                     </div>
                   <div className="flex-1 space-y-2">
-                    <div className="w-full px-2 py-1 border border-transparent text-xs font-semibold bg-gray-50 rounded-xs">
-                      {conversation.first_name || conversation.metadata?.name || `Visitor #${conversation.visitor_id?.substring(0, 8) || 'Unknown'}`}
+                    {/* Name Field */}
+                    <div className="flex items-center gap-2">
+                      {isNameEditing ? (
+                        <div className="flex items-center gap-1 flex-1">
+                          <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
+                            placeholder="Enter name"
+                          />
+                          <button
+                            onClick={handleSaveName}
+                            disabled={saving}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 flex-1">
+                          <div className="flex-1 px-2 py-1 border border-transparent text-xs font-semibold bg-gray-50 rounded-xs">
+                            {name || conversation.visitor_details?.first_name || `Visitor #${conversation.visitor_id?.substring(0, 8) || 'Unknown'}`}
+                          </div>
+                          <button
+                            onClick={() => setIsNameEditing(true)}
+                            className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <input
-                        type="email"
-                        placeholder="Add email"
-                      defaultValue={conversation.metadata?.email || ''}
-                      className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
-                      />
-                      
+                    
+                    {/* Email Field */}
+                    <div className="flex items-center gap-2">
+                      {isEmailEditing ? (
+                        <div className="flex items-center gap-1 flex-1">
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
+                            placeholder="Enter email"
+                          />
+                          <button
+                            onClick={handleSaveEmail}
+                            disabled={saving}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 flex-1">
+                          <input
+                            type="email"
+                            value={email}
+                            readOnly
+                            className="flex-1 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-xs"
+                            placeholder="Add email"
+                          />
+                          <button
+                            onClick={() => setIsEmailEditing(true)}
+                            className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <input
+                
+                {/* Phone Field */}
+                <div className="flex items-center gap-2">
+                  {isPhoneEditing ? (
+                    <div className="flex items-center gap-1 flex-1">
+                      <input
                         type="tel"
-                        placeholder="Add phone number"
-                      className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
-                    />
-                <textarea
-                  placeholder="Add visitor notes"
-                  rows={3}
-                  className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-xs"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="flex-1 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent bg-white rounded-xs"
+                        placeholder="Enter phone number"
                       />
+                      <button
+                        onClick={handleSavePhone}
+                        disabled={saving}
+                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 flex-1">
+                      <input
+                        type="tel"
+                        value={phone}
+                        readOnly
+                        className="flex-1 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-xs"
+                        placeholder="Add phone number"
+                      />
+                      <button
+                        onClick={() => setIsPhoneEditing(true)}
+                        className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Notes Field */}
+                <div className="flex items-start gap-2">
+                  {isNotesEditing ? (
+                    <div className="flex items-start gap-1 flex-1">
+                      <textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        rows={3}
+                        className="flex-1 px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-xs"
+                        placeholder="Enter visitor notes"
+                      />
+                      <button
+                        onClick={handleSaveNotes}
+                        className="p-1 text-green-600 hover:bg-green-50 rounded mt-1"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-1 flex-1">
+                      <textarea
+                        value={notes}
+                        readOnly
+                        rows={3}
+                        className="flex-1 px-2 py-1 border border-transparent text-xs bg-gray-50 rounded-xs resize-none"
+                        placeholder="Add visitor notes"
+                      />
+                      <button
+                        onClick={() => setIsNotesEditing(true)}
+                        className="p-1 text-gray-500 hover:bg-gray-100 rounded mt-1"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
                     </div>
 
 
@@ -177,17 +376,17 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                 <div className="grid grid-cols-2 divide-x divide-gray-200">
                   {/* Past Visits */}
                   <div className="flex flex-col items-center justify-center px-2">
-                    <div className="text-sm font-bold text-gray-900">11</div>
+                    <div className="text-sm font-bold text-gray-900">{conversation.visitor_details?.past_visits || 0}</div>
                     <div className="text-xs text-gray-600 text-center">Past visits</div>
                   </div>
                   
                   {/* Message Count */}
                   <div className="flex flex-col items-center justify-center px-2">
-                    <div className="text-sm font-bold text-gray-900">{conversation.message_count || 0}</div>
+                    <div className="text-sm font-bold text-gray-900">{conversation.visitor_details?.chat_count || 0}</div>
                     <div className="text-xs text-gray-600 text-center">Past chats</div>
                   </div>
-                      </div>
-                      </div>
+                </div>
+              </div>
                       
               {/* Visitor Path */}
               <div className="bg-white shadow-sm p-3">

@@ -66,12 +66,14 @@ export const VisitorRequestsProvider: React.FC<VisitorRequestsProviderProps> = (
       try {
         const response = await api.get(`/chat/pending-visitors/${user.client_id}`);
         if (response.data && response.data.visitors) {
-          const existingRequests: VisitorRequest[] = response.data.visitors.map((visitor: any) => ({
-            visitor_id: visitor.visitor_id,
-            metadata: visitor.metadata,
-            timestamp: new Date().toISOString(),
-            status: 'pending' as const
-          }));
+          const existingRequests: VisitorRequest[] = response.data.visitors
+            .filter((visitor: any) => visitor.status === 'pending')
+            .map((visitor: any) => ({
+              visitor_id: visitor.visitor_id,
+              metadata: visitor.metadata,
+              timestamp: new Date().toISOString(),
+              status: 'pending' as const
+            }));
           setRequests(existingRequests);
         }
       } catch (error) {

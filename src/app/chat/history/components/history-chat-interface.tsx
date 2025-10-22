@@ -76,7 +76,9 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
                             <span className={`text-xs font-medium ${
                               message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
                             }`}>
-                              {message.sender_type === 'client_agent' ? (selectedAgent?.name || 'Agent') : 'Visitor'}
+                              {message.sender_type === 'client_agent' ? 
+                                (message.sender_name || 'Agent') : 
+                                (message.sender_name || 'Visitor')}
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
                               {formatTime(message.timestamp)}

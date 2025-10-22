@@ -10,8 +10,14 @@ export interface ChatConversation {
   client_id: string;
   visitor_id?: string;
   agent_id?: string;
-  first_name?: string;
-  last_name?: string;
+  visitor_details?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    contact?: string;
+    past_visits?: number;
+    chat_count?: number;
+  };
   agent_info?: {
     name: string;
     email: string;
@@ -37,6 +43,7 @@ export interface ChatConversation {
     sender_id: string;
     message: string;
     timestamp: string;
+    sender_name?: string; // Agent name for client_agent messages
   }>;
   message_count: number;
   last_message?: {

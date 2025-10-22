@@ -10,12 +10,21 @@ import api from '@/lib/axios';
 
 interface ChatHistoryRecord {
   chat_session_id: string;
+  visitor_id?: string;
   agent_info?: {
     name: string;
     email: string;
     role: string;
   };
   agent_id?: string;
+  visitor_details?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    contact?: string;
+    past_visits?: number;
+    chat_count?: number;
+  };
   created_at: string;
   updated_at?: string;
   message_count: number;
@@ -30,6 +39,7 @@ interface ChatHistoryRecord {
     sender_id: string;
     message: string;
     timestamp: string;
+    sender_name?: string; // Agent name for client_agent messages, visitor name for visitor messages
   }>;
   satisfaction?: number;
 }
@@ -58,11 +68,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [pastChatHistory, setPastChatHistory] = useState<ChatHistoryRecord[]>([]);
   const [selectedPastChat, setSelectedPastChat] = useState<ChatHistoryRecord | null>(null);
   const [loadingPastHistory, setLoadingPastHistory] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const seenMessagesRef = useRef<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const ratingPopoverRef = useRef<HTMLDivElement>(null);
   const { 
     chatMessages, 
     isConnected, 
@@ -76,6 +88,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     sendChatMessage,
     sendTypingIndicator,
     sendMessageSeen,
+    sendRatingRequest,
     selectedVisitor,
     continueChat
   } = useGlobalChat();
@@ -115,6 +128,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = null;
       }
+      // Keep hasStartedTyping true so action buttons remain visible
     }
   };
 
@@ -126,24 +140,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const handleTyping = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (!canSend) return;
-    setChatMessage(e.target.value);
-    
-    // Mark that user has started typing
+    const value = e.target.value;
+    setChatMessage(value);
+
+    // Show input actions immediately on first keystroke
     if (!hasStartedTyping) {
       setHasStartedTyping(true);
     }
-    
-    // Clear existing timeout
+
+    // Only emit typing indicators when allowed to send
+    if (!canSend) return;
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
-    // Send typing indicator
-    if (e.target.value.trim()) {
+
+    if (value.trim()) {
       sendTypingIndicator(true);
-      
-      // Set timeout to stop typing after 2 seconds of inactivity
       typingTimeoutRef.current = setTimeout(() => {
         sendTypingIndicator(false);
         typingTimeoutRef.current = null;
@@ -186,6 +199,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowEmojiPicker(false);
   };
 
+  // Rating modal handlers
+  const handleRatingClick = () => {
+    setShowRatingModal(true);
+  };
+
+  const handleSendRatingRequest = async () => {
+    try {
+      // Send rating request via websocket using the global chat context
+      sendRatingRequest();
+      setShowRatingModal(false);
+    } catch (error) {
+      console.error('Error sending rating request:', error);
+    }
+  };
+
+  const handleCancelRating = () => {
+    setShowRatingModal(false);
+  };
+
   // Handle file upload
   const handleFileUpload = async (file: File) => {
     if (!visitor.session_id || !visitor.visitor_id) return;
@@ -196,7 +228,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       // 1. Get presigned URL
       const presignResponse = await api.post(
-        `/chat/${visitor.session_id}/visitor/${visitor.visitor_id}/attachments/presign`,
+        `/attachments/agent/${visitor.session_id}/${currentAgent?.id}/presign`,
         {
           file_name: file.name,
           mime_type: file.type || 'application/octet-stream',
@@ -213,13 +245,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       // 2. Upload to S3 using presigned URL
       if (upload_url) {
         // Start with Content-Type from file, then merge backend headers (as in fe_flow_test.py)
-        const uploadHeaders: Record<string, string> = {
-          'Content-Type': file.type || 'application/octet-stream'
-        };
+        // Upload to S3 using presigned URL
+        const uploadHeaders: Record<string, string> = {};
         
-        // Merge additional headers from backend response
+        // Only add Content-Type if it's specified in the file
+        if (file.type) {
+          uploadHeaders['Content-Type'] = file.type;
+        }
+        
+        // Merge additional headers from backend response (but be careful with CORS)
         if (headers) {
-          Object.assign(uploadHeaders, headers);
+          // Only add headers that are safe for CORS
+          Object.keys(headers).forEach(key => {
+            const lowerKey = key.toLowerCase();
+            if (lowerKey.startsWith('x-amz-') || lowerKey === 'content-type') {
+              uploadHeaders[key] = headers[key];
+            }
+          });
         }
 
         const uploadResponse = await fetch(upload_url, {
@@ -248,15 +290,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       // 3. Commit attachment
       await api.post(
-        `/chat/${visitor.session_id}/visitor/${visitor.visitor_id}/attachments/upload`,
+        `/attachments/agent/${visitor.session_id}/${currentAgent?.id}/commit`,
         {
           file_name: file.name,
           mime_type: file.type || 'application/octet-stream',
           size: file.size,
           s3_key: s3_key,
-          caption: '',
-          sender_type: 'client_agent',
-          sender_id: currentAgent?.id
+          caption: ''
         }
       );
 
@@ -288,6 +328,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
         setShowEmojiPicker(false);
+      }
+      if (ratingPopoverRef.current && !ratingPopoverRef.current.contains(event.target as Node)) {
+        setShowRatingModal(false);
       }
     };
 
@@ -440,26 +483,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                               message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
                             }`}>
                               {message.sender_name || 
-                               (message.sender === 'agent' ? (currentAgent?.name || 'Agent') : 
-                               message.sender === 'visitor' ? (visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8)) : '-')}
-                              
+                               (message.sender === 'agent' ? 'Agent' : 
+                               message.sender === 'visitor' ? (visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`) : '-')}
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
                               {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
                             </span>
                           </div>
                         )}
-                        { (message as any).type === 'attachment' && (message as any).attachment_name ? (
+                        { (message as any).type === 'attachment' && (message as any).attachment ? (
                           <div className="text-xs max-w-48 break-words flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-gray-600" />
                             <a
-                              href={(message as any).attachment_url || '#'}
+                              href={(message as any).attachment.url || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline truncate"
-                              title={(message as any).attachment_name}
+                              title={(message as any).attachment.file_name}
                             >
-                              {(message as any).attachment_name}
+                              {(message as any).attachment.file_name}
                             </a>
                           </div>
                         ) : (
@@ -558,21 +600,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   </div>
                 </div>
               </div>
-            ) : !hasStartedTyping ? (
-        /* Initial state - show centered message with hidden textarea */
+            ) : (
+        /* Unified input area: overlay hides and actions show as soon as typing starts */
         <div className="relative h-full w-full">
-          {/* Hidden textarea to capture typing */}
           <textarea
+            ref={textareaRef}
             value={chatMessage}
             onChange={handleTyping}
             onKeyPress={handleKeyPress}
             onBlur={handleBlur}
             placeholder=""
-            className="absolute inset-0 text-sm border-none outline-none resize-none p-3 h-full w-full opacity-0"
+            className={`text-sm border-none outline-none resize-none p-3 w-full h-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
             disabled={visitor.isDisconnected || visitor.hasLeft}
           />
-          {/* Centered message overlay - only show when textarea is empty */}
-          {!chatMessage && (
+          {/* Initial overlay text - hidden when there's text OR after typing has started */}
+          {chatMessage.trim().length === 0 && !hasStartedTyping && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
               <div 
                 style={{ 
@@ -589,22 +631,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </div>
             </div>
           )}
-        </div>
-      ) : (
-        /* Typing state - show textarea with action buttons */
-        <>
-          <textarea
-            ref={textareaRef}
-            value={chatMessage}
-            onChange={handleTyping}
-            onKeyPress={handleKeyPress}
-            onBlur={handleBlur}
-            placeholder=""
-            className="text-sm border-none outline-none resize-none p-3 w-full h-full"
-            disabled={visitor.isDisconnected || visitor.hasLeft}
-          />
-          {/* Action Buttons - positioned at bottom right */}
-          {/* Pending attachments chips */}
+          
           {pendingFiles.length > 0 && (
             <div className="absolute left-3 bottom-2 flex items-center gap-2 flex-wrap max-w-[70%]">
               {pendingFiles.map((file, idx) => {
@@ -633,18 +660,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           )}
 
-          <div className="absolute bottom-2 right-2 flex items-center gap-2">
+          {hasStartedTyping && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-4">
             <button 
               onClick={handleEmojiClick}
               className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
             >
               <Smile className="h-4 w-4" />
+              <span>Emoji</span>
             </button>
-            <button className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800">
-              <ThumbsUp className="h-4 w-4" />
-            </button>
+             <button 
+               onClick={handleRatingClick}
+               className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+             >
+               <ThumbsUp className="h-4 w-4" />
+               <span>Rating</span>
+             </button>
             <label className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 cursor-pointer">
               <Paperclip className="h-4 w-4" />
+              <span>Attach</span>
               <input
                 type="file"
                 multiple
@@ -661,6 +695,33 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               />
             </label>
           </div>
+          )}
+
+          {/* Rating popover */}
+          {showRatingModal && (
+            <div 
+              ref={ratingPopoverRef}
+              className="absolute bottom-12 right-2 z-50"
+            >
+              <div className="bg-white shadow-lg rounded-md border border-gray-200 p-3 w-64">
+                <div className="text-sm text-gray-800 mb-3">Request a rating from the visitor</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSendRatingRequest}
+                    className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                  >
+                    Send
+                  </button>
+                  <button
+                    onClick={handleCancelRating}
+                    className="px-2 py-1 text-xs bg-white border border-gray-300 text-gray-800 rounded hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Emoji Picker */}
           {showEmojiPicker && (
@@ -681,7 +742,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               />
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   </div>
@@ -857,9 +918,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                     <span className={`text-xs font-medium ${
                                       message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
                                     }`}>
-                                      {message.sender_type == 'client_agent' ? (selectedPastChat.agent_info?.name || 'Agent') : 
-                                      message.sender_type == 'visitor' ? (visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8)) : '-'}
-                                      
+                                      {message.sender_name || 
+                                       (message.sender_type == 'client_agent' ? 
+                                         (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') : 
+                                       message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || selectedPastChat.visitor_id?.substring(0, 8) || 'Visitor') : '-')}
                                     </span>
                                     <span className="text-xs text-gray-500 ml-2">
                                       {formatTime(message.timestamp)}
@@ -921,6 +983,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       
       {/* Tab Content */}
       {activeTab === 'current' ? renderCurrentChat() : renderPastChats()}
+      
+      {/* Removed fullscreen rating modal in favor of inline popover above action icons */}
     </div>
   );
 };

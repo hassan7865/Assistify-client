@@ -15,6 +15,7 @@ import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
 import { API_BASE_URL } from '@/lib/axios';
 import api from '@/lib/axios';
 import { ChatStorage, StoredMinimizedChat } from '@/lib/storage';
+import { playVisitorMessageSound } from '@/lib/sound-utils';
 
 // Types
 interface Visitor {
@@ -66,8 +67,13 @@ interface ChatMessage {
   sender_name?: string | null;
   // Extended fields for attachments
   type?: 'text' | 'attachment' | 'system';
-  attachment_name?: string;
-  attachment_url?: string;
+  attachment?: {
+    s3_key: string;
+    file_name: string;
+    mime_type: string;
+    size: number;
+    url: string;
+  };
 }
 
 interface VisitorChatState {
@@ -122,6 +128,7 @@ interface GlobalChatContextType {
   sendChatMessage: (message: string) => Promise<void>;
   sendTypingIndicator: (isTyping: boolean) => void;
   sendMessageSeen: (messageId: string) => void;
+  sendRatingRequest: () => void;
   
   // Current Agent Info
   currentAgent: { id: string; name: string } | null;
@@ -654,9 +661,8 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   // WebSocket event handlers
   const createWebSocketHandlers = useCallback((visitor: Visitor) => {
     const onMessage = (data: any) => {
-      if (data.type === 'chat_message' || data.type === 'attachment_message') {
-        console.log(data);
-        const isAttachment = data.type === 'attachment_message' || data.attachment;
+      if (data.type === 'chat_message' || data.type === 'message') {
+        const isAttachment = data.type === 'message' && data.attachment;
         const newMessage: ChatMessage = {
           id: data.message_id || `${Date.now()}-${Math.random()}`,
           sender: data.sender_type === 'visitor' ? 'visitor' : 
@@ -667,10 +673,8 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           timestamp: data.timestamp || new Date().toISOString(),
           seen_status: 'delivered',
           type: isAttachment ? 'attachment' : (data.sender_type === 'system' ? 'system' : 'text'),
-          attachment_name: data.attachment?.file_name,
-          attachment_url: data.attachment?.url
+          attachment: data.attachment
         };
-
         dispatch({
           type: 'ADD_MESSAGE',
           payload: { visitorId: visitor.visitor_id, message: newMessage }
@@ -686,6 +690,9 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
 
         // Auto-mark visitor messages as seen
         if (data.sender_type === 'visitor') {
+          // Play sound for visitor message received
+          playVisitorMessageSound();
+          
           // Count unread visitor messages
           const chatState = state.visitorChatStates.get(visitor.visitor_id);
           const unreadVisitorMessages = chatState?.chatMessages.filter(msg => 
@@ -772,7 +779,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [updateVisitorLastMessage]);
 
   // Connect WebSocket for visitor
-  const connectWebSocket = useCallback((visitor: Visitor) => {
+  const connectWebSocket = useCallback(async (visitor: Visitor) => {
     if (!visitor.session_id || !currentAgent?.id) {
       return;
     }
@@ -789,6 +796,44 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
         updates: { isConnecting: true }
       }
     });
+
+    // Fetch latest conversation data before connecting WebSocket
+    try {
+      const response = await api.get(`/chat/conversation/${visitor.session_id}`);
+      if (response.data?.success && response.data?.data) {
+        const conversation = response.data.data;
+        const messages = conversation.messages || [];
+        
+        // Convert conversation messages to ChatMessage format
+        const chatMessages: ChatMessage[] = messages.map((msg: any) => ({
+          id: msg.message_id || `${Date.now()}-${msg.sender_id}`,
+          sender: msg.sender_type === 'client_agent' ? 'agent' : 
+                  msg.sender_type === 'visitor' ? 'visitor' : 'system',
+          sender_id: msg.sender_id,
+          sender_name: msg.sender_name,
+          message: msg.message || '',
+          timestamp: msg.timestamp,
+          seen_status: msg.seen_status || 'delivered',
+          type: msg.attachment ? 'attachment' : 'text',
+          attachment_name: msg.attachment?.file_name,
+          attachment_url: msg.attachment?.s3_url
+        }));
+
+        // Update chat messages with latest conversation data
+        dispatch({
+          type: 'UPDATE_VISITOR_CHAT_STATE',
+          payload: {
+            visitorId: visitor.visitor_id,
+            updates: { 
+              chatMessages: chatMessages,
+              lastActivity: Date.now()
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch conversation data before WebSocket connection:', error);
+    }
 
     const handlers = createWebSocketHandlers(visitor);
     const ws = wsManagerRef.current.connect(
@@ -810,7 +855,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
         }
       });
     }
-  }, [currentAgent, state.visitorChatStates, createWebSocketHandlers]);
+  }, [currentAgent, state.visitorChatStates, createWebSocketHandlers, api]);
 
   // Chat actions
   const openChat = useCallback(async (visitor: Visitor) => {
@@ -1086,6 +1131,23 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     });
   }, [state.selectedVisitor, currentAgent, state.visitorChatStates]);
 
+  const sendRatingRequest = useCallback(() => {
+    if (!state.selectedVisitor || !currentAgent?.id) return;
+    
+    // Only send rating request if already connected
+    const chatState = state.visitorChatStates.get(state.selectedVisitor.visitor_id);
+    if (!chatState?.isConnected) {
+      return; // Don't send if not connected yet
+    }
+    
+    wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
+      type: 'request_rating',
+      sender_type: 'client_agent',
+      sender_id: currentAgent.id,
+      timestamp: new Date().toISOString()
+    });
+  }, [state.selectedVisitor, currentAgent, state.visitorChatStates]);
+
   // Handle close with dialog
   const handleCloseWithDialog = useCallback(() => {
     if (!state.selectedVisitor) return;
@@ -1279,6 +1341,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     sendChatMessage,
     sendTypingIndicator,
     sendMessageSeen,
+    sendRatingRequest,
     currentAgent,
     setCurrentAgent,
   }), [
@@ -1303,6 +1366,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     sendChatMessage,
     sendTypingIndicator,
     sendMessageSeen,
+    sendRatingRequest,
   ]);
 
   return (
