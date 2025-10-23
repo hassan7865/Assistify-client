@@ -448,7 +448,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                             </span>
                           </div>
                         )}
-                        { (message as any).type === 'attachment' && (message as any).attachment ? (
+                        { (message as any).attachment ? (
                           <AttachmentMessage
                             attachment={(message as any).attachment}
                             senderType={message.sender === 'agent' ? 'agent' : 'visitor'}
@@ -912,35 +912,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                               </div>
                             ) : (
                               <>
-                                {message.type === 'attachment' && message.attachment ? (
-                                  <AttachmentMessage
-                                    attachment={message.attachment}
-                                    senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}
-                                  />
-                                ) : (
-                                  <>
-                                    {!isConsecutiveFromSameSender && (
-                                      <div className="flex items-center justify-between">
-                                        <span className={`text-xs font-medium ${
-                                          message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
-                                        }`}>
-                                          {message.sender_name || 
-                                           (message.sender_type == 'client_agent' ? 
-                                             (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') : 
-                                           message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || selectedPastChat.visitor_id?.substring(0, 8) || 'Visitor') : '-')}
-                                        </span>
-                                        <span className="text-xs text-gray-500 ml-2">
-                                          {formatTime(message.timestamp)}
-                                        </span>
-                                      </div>
-                                    )}
+                                <>
+                                  {!isConsecutiveFromSameSender && (
+                                    <div className="flex items-center justify-between">
+                                      <span className={`text-xs font-medium ${
+                                        message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
+                                      }`}>
+                                        {message.sender_name || 
+                                         (message.sender_type == 'client_agent' ? 
+                                           (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') : 
+                                         message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || '#Visitor ' + selectedPastChat.visitor_id?.substring(0, 8)) : '-')}
+                                      </span>
+                                      <span className="text-xs text-gray-500 ml-2">
+                                        {formatTime(message.timestamp)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {message.attachment ? (
+                                    <AttachmentMessage
+                                      attachment={message.attachment}
+                                      senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}
+                                    />
+                                  ) : (
                                     <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
                                       message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
                                     }`}>
                                       {message.message}
                                     </div>
-                                  </>
-                                )}
+                                  )}
+                                </>
                               </>
                             )}
                           </div>

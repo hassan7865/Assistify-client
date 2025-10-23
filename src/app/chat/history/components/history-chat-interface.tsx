@@ -78,15 +78,16 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
                               message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
                             }`}>
                               {message.sender_type === 'client_agent' ? 
-                                (message.sender_name || 'Agent') : 
-                                (message.sender_name || 'Visitor')}
+                                (message.sender_name || 'Agent') :  message.sender_type === 'visitor' ? 
+                                (message.sender_name || '#Visitor ' + message.sender_id.substring(0, 8)) : '-'}
+                                
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
                               {formatTime(message.timestamp)}
                             </span>
                           </div>
                         )}
-                        {message.type === 'attachment' && message.attachment ? (
+                        {message.attachment ? (
                           <AttachmentMessage
                             attachment={message.attachment}
                             senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}

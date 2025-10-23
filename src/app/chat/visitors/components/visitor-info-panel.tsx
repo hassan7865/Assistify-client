@@ -7,7 +7,7 @@ import { Visitor, ChatMessage, getChatDuration } from '../../types';
 import api from '@/lib/axios';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { globalEventEmitter, EVENTS } from '@/lib/event-emitter';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, X, ArrowDown } from 'lucide-react';
 
 interface VisitorInfoPanelProps {
   visitor: Visitor;
@@ -597,35 +597,21 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-gray-600">
               <div className="w-4 h-4 flex items-center justify-center">
-                <span>↓</span>
+                <ArrowDown className="w-3 h-3 text-gray-600" />
               </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <a 
-                    href={visitor.metadata?.page_url || '#'} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="truncate text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                  >
-                    {visitor.metadata?.page_url || '-'}
-                  </a>
-                </TooltipTrigger>
-                <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
-                  <p>{visitor.metadata?.page_url || 'No page URL available'}</p>
-                </TooltipContent>
-              </Tooltip>
+              <div>Direct Path</div>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-600">
               <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a 
-                    href={visitor.metadata?.referrer || '#'} 
+                    href={visitor.metadata?.page_url || '-'} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="truncate text-blue-600 hover:text-blue-800 underline cursor-pointer"
                   >
-                    {visitor.metadata?.referrer || '-'}
+                    {visitor.metadata?.page_url || '-'}
                   </a>
                 </TooltipTrigger>
                 <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">

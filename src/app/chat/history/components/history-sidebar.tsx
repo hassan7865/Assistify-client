@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, User, Edit2, MapPin, Monitor, Globe, Download, Save, Check, ThumbsUp, ThumbsDown, ChevronDown } from 'lucide-react';
+import { X, User, Edit2, MapPin, Monitor, Globe, Download, Save, Check, ThumbsUp, ThumbsDown, ChevronDown, ArrowDown } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -490,23 +490,9 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs text-gray-600">
                     <div className="w-4 h-4 flex items-center justify-center">
-                      <span>↓</span>
+                      <ArrowDown className="w-3 h-3 text-gray-600" />
                     </div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <a 
-                          href={conversation.metadata?.page_url || '#'} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="truncate text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
-                        >
-                          {conversation.metadata?.page_url || '-'}
-                        </a>
-                      </TooltipTrigger>
-                      <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
-                        <p>{conversation.metadata?.page_url || 'No page URL available'}</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <div>Direct Path</div>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-600">
                     <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
