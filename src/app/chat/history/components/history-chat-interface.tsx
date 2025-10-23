@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ChatConversation } from '../hooks/use-chat-history';
+import AttachmentMessage from '@/components/ui/attachment-message';
 
 interface HistoryChatInterfaceProps {
   conversation: ChatConversation;
@@ -85,11 +86,18 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
                             </span>
                           </div>
                         )}
-                        <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
-                          message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
-                        }`}>
-                          {message.message}
-                        </div>
+                        {message.type === 'attachment' && message.attachment ? (
+                          <AttachmentMessage
+                            attachment={message.attachment}
+                            senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}
+                          />
+                        ) : (
+                          <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
+                            message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
+                          }`}>
+                            {message.message}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>

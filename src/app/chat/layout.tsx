@@ -6,9 +6,11 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { VisitorActionsProvider } from "@/contexts/visitor-actions";
 import { VisitorRequestsProvider } from "@/contexts/visitor-requests";
 import { GlobalChatProvider } from "@/contexts/global-chat-context";
+import { BanModalProvider } from "@/contexts/ban-modal-context";
 import GlobalChatComponents from "@/components/global-chat-components";
 import VisitorMonitor from "./components/visitor-monitor";
 import GlobalMinimizedChatTabs from "./components/global-minimized-chat-tabs";
+import BanModalWrapper from "@/app/chat/components/ban-modal-wrapper";
 
 export default function ChatLayout({
   children,
@@ -18,8 +20,10 @@ export default function ChatLayout({
   return (
     <ProtectedRoute>
       <GlobalChatProvider>
-        <VisitorRequestsProvider>
-          <VisitorActionsProvider>
+        <BanModalProvider>
+          <BanModalWrapper />
+          <VisitorRequestsProvider>
+            <VisitorActionsProvider>
             <SidebarProvider defaultOpen={true} variant="sidebar">
               <div className="flex h-screen w-full overflow-hidden relative">
                 <AppSidebar />
@@ -42,7 +46,8 @@ export default function ChatLayout({
               </div>
             </SidebarProvider>
           </VisitorActionsProvider>
-        </VisitorRequestsProvider>
+          </VisitorRequestsProvider>
+        </BanModalProvider>
         <GlobalChatComponents />
       </GlobalChatProvider>
     </ProtectedRoute>

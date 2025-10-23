@@ -617,7 +617,11 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           sender_id: msg.sender_id,
           message: msg.message,
           timestamp: msg.timestamp || new Date().toISOString(),
-          seen_status: msg.seen_status || 'delivered'
+          seen_status: msg.seen_status || 'delivered',
+          type: msg.attachment ? 'attachment' : 'text',
+          attachment: msg.attachment, // Include the full attachment object
+          attachment_name: msg.attachment?.file_name,
+          attachment_url: msg.attachment?.s3_url
         }));
         
         // Also fetch past history for the same visitor (by IP address)
@@ -844,6 +848,7 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
           timestamp: msg.timestamp,
           seen_status: msg.seen_status || 'delivered',
           type: msg.attachment ? 'attachment' : 'text',
+          attachment: msg.attachment, // Include the full attachment object
           attachment_name: msg.attachment?.file_name,
           attachment_url: msg.attachment?.s3_url
         }));

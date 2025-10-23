@@ -49,6 +49,13 @@ export interface ChatConversation {
     message: string;
     timestamp: string;
     sender_name?: string; // Agent name for client_agent messages
+    type?: 'text' | 'attachment' | 'system';
+    attachment?: {
+      file_name: string;
+      url: string;
+      mime_type?: string;
+      size?: number;
+    };
   }>;
   message_count: number;
   last_message?: {

@@ -172,3 +172,30 @@
   animation: request-bounce 2s infinite;
 }
 
+/* Uploading progress animations */
+@keyframes uploading-stripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 20px 0;
+  }
+}
+
+@keyframes uploading-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.uploading-progress-bar {
+  animation: uploading-stripes 1s linear infinite;
+}
+
+.uploading-shimmer {
+  animation: uploading-shimmer 1.5s ease-in-out infinite;
+}
+

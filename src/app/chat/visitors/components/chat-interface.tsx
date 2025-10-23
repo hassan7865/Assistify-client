@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Smile, ThumbsUp, ThumbsDown, Paperclip, MessageCircle, FileText, X } from 'lucide-react';
+import { Smile, ThumbsUp, ThumbsDown, Paperclip, MessageCircle } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 import { useGlobalChat } from '@/contexts/global-chat-context';
 import { useAuth } from '@/contexts/auth-context';
 import { Visitor } from '../../types';
 import api from '@/lib/axios';
+import AttachmentMessage from '@/components/ui/attachment-message';
+import UploadingAttachment from '@/components/ui/uploading-attachment';
 
 interface ChatHistoryRecord {
   chat_session_id: string;
@@ -40,6 +42,13 @@ interface ChatHistoryRecord {
     message: string;
     timestamp: string;
     sender_name?: string; // Agent name for client_agent messages, visitor name for visitor messages
+    type?: 'text' | 'attachment' | 'system';
+    attachment?: {
+      file_name: string;
+      url: string;
+      mime_type?: string;
+      size?: number;
+    };
   }>;
   session_rating?: {
     session_id: string;
@@ -227,91 +236,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Handle file upload
   const handleFileUpload = async (file: File) => {
-    if (!visitor.session_id || !visitor.visitor_id) return;
+    if (!visitor.session_id || !visitor.visitor_id || !currentAgent?.id) return;
 
     const fileKey = `${file.name}-${Date.now()}`;
     setUploadingFiles(prev => new Set(prev).add(fileKey));
+    
+    // Remove from pending files immediately when upload starts
+    setPendingFiles(prev => prev.filter(f => f !== file));
 
     try {
-      // 1. Get presigned URL
-      const presignResponse = await api.post(
-        `/attachments/agent/${visitor.session_id}/${currentAgent?.id}/presign`,
+      // Use direct upload endpoint that bypasses presigned URLs
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('caption', '');
+
+      console.log('Uploading file directly to backend:', { name: file.name, type: file.type, size: file.size });
+
+      const response = await api.post(
+        `/attachments/agent/${visitor.session_id}/${currentAgent.id}/direct-upload`,
+        formData,
         {
-          file_name: file.name,
-          mime_type: file.type || 'application/octet-stream',
-          size: file.size
-        }
-      );
-
-      if (!presignResponse.data.success) {
-        throw new Error('Failed to get upload URL');
-      }
-
-      const { upload_url, headers, s3_key, public_url } = presignResponse.data;
-
-      // 2. Upload to S3 using presigned URL
-      if (upload_url) {
-        // Start with Content-Type from file, then merge backend headers (as in fe_flow_test.py)
-        // Upload to S3 using presigned URL
-        const uploadHeaders: Record<string, string> = {};
-        
-        // Only add Content-Type if it's specified in the file
-        if (file.type) {
-          uploadHeaders['Content-Type'] = file.type;
-        }
-        
-        // Merge additional headers from backend response (but be careful with CORS)
-        if (headers) {
-          // Only add headers that are safe for CORS
-          Object.keys(headers).forEach(key => {
-            const lowerKey = key.toLowerCase();
-            if (lowerKey.startsWith('x-amz-') || lowerKey === 'content-type') {
-              uploadHeaders[key] = headers[key];
-            }
-          });
-        }
-
-        const uploadResponse = await fetch(upload_url, {
-          method: 'PUT',
-          body: file,
-          headers: uploadHeaders
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload file to S3: ${uploadResponse.status}`);
-        }
-      } else if (public_url) {
-        // Public bucket mode
-        const uploadResponse = await fetch(public_url, {
-          method: 'PUT',
-          body: file,
           headers: {
-            'Content-Type': file.type || 'application/octet-stream'
-          }
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file to public bucket');
-        }
-      }
-
-      // 3. Commit attachment
-      await api.post(
-        `/attachments/agent/${visitor.session_id}/${currentAgent?.id}/commit`,
-        {
-          file_name: file.name,
-          mime_type: file.type || 'application/octet-stream',
-          size: file.size,
-          s3_key: s3_key,
-          caption: ''
+            'Content-Type': 'multipart/form-data',
+          },
         }
       );
 
-      // Remove from pending files
-      setPendingFiles(prev => prev.filter(f => f !== file));
+      if (!response.data.success) {
+        throw new Error(`Upload failed: ${JSON.stringify(response.data)}`);
+      }
+
+      console.log('Direct upload successful:', response.data);
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert(`Failed to upload ${file.name}`);
+      alert(`Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setUploadingFiles(prev => {
         const newSet = new Set(prev);
@@ -321,14 +279,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Upload all pending files
-  const handleUploadAllFiles = async () => {
-    if (pendingFiles.length === 0) return;
-    
-    for (const file of pendingFiles) {
-      await handleFileUpload(file);
-    }
-  };
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -499,18 +449,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           </div>
                         )}
                         { (message as any).type === 'attachment' && (message as any).attachment ? (
-                          <div className="text-xs max-w-48 break-words flex items-center gap-2">
-                            <FileText className="w-3.5 h-3.5 text-gray-600" />
-                            <a
-                              href={(message as any).attachment.url || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline truncate"
-                              title={(message as any).attachment.file_name}
-                            >
-                              {(message as any).attachment.file_name}
-                            </a>
-                          </div>
+                          <AttachmentMessage
+                            attachment={(message as any).attachment}
+                            senderType={message.sender === 'agent' ? 'agent' : 'visitor'}
+                          />
                         ) : (
                           <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
                             message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
@@ -549,6 +491,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 );
               })
             )}
+            
+            {/* Uploading Progress Messages */}
+            {Array.from(uploadingFiles).map((fileKey) => {
+              // Extract filename from the fileKey (format: "filename-timestamp")
+              const fileName = fileKey.split('-').slice(0, -1).join('-');
+              const timestamp = new Date().toISOString();
+              
+              return (
+                <div key={fileKey} className="flex flex-col">
+                  <UploadingAttachment
+                    fileName={fileName}
+                    senderName={user?.name || 'Agent'}
+                    timestamp={timestamp}
+                    senderType="agent"
+                    isConsecutive={false}
+                  />
+                </div>
+              );
+            })}
             
             {/* Connection Status */}
             {isConnecting && (
@@ -663,33 +624,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           )}
           
-          {pendingFiles.length > 0 && (
-            <div className="absolute left-3 bottom-2 flex items-center gap-2 flex-wrap max-w-[70%]">
-              {pendingFiles.map((file, idx) => {
-                const fileKey = `${file.name}-${Date.now()}`;
-                const isUploading = uploadingFiles.has(fileKey);
-                
-                return (
-                  <div key={idx} className="flex items-center gap-1 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-sm text-[10px] text-blue-700">
-                    <FileText className="w-3 h-3 text-blue-600" />
-                    <span className="truncate max-w-32" title={file.name}>{file.name}</span>
-                    {isUploading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPendingFiles(pendingFiles.filter((_, i) => i !== idx))}
-                        className="hover:text-blue-900"
-                        aria-label="Remove file"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
 
           {hasStartedTyping && (
           <div className="absolute bottom-2 right-2 flex items-center gap-4">
@@ -978,26 +912,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                               </div>
                             ) : (
                               <>
-                                {!isConsecutiveFromSameSender && (
-                                  <div className="flex items-center justify-between">
-                                    <span className={`text-xs font-medium ${
-                                      message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
+                                {message.type === 'attachment' && message.attachment ? (
+                                  <AttachmentMessage
+                                    attachment={message.attachment}
+                                    senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}
+                                  />
+                                ) : (
+                                  <>
+                                    {!isConsecutiveFromSameSender && (
+                                      <div className="flex items-center justify-between">
+                                        <span className={`text-xs font-medium ${
+                                          message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
+                                        }`}>
+                                          {message.sender_name || 
+                                           (message.sender_type == 'client_agent' ? 
+                                             (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') : 
+                                           message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || selectedPastChat.visitor_id?.substring(0, 8) || 'Visitor') : '-')}
+                                        </span>
+                                        <span className="text-xs text-gray-500 ml-2">
+                                          {formatTime(message.timestamp)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
+                                      message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
                                     }`}>
-                                      {message.sender_name || 
-                                       (message.sender_type == 'client_agent' ? 
-                                         (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') : 
-                                       message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || selectedPastChat.visitor_id?.substring(0, 8) || 'Visitor') : '-')}
-                                    </span>
-                                    <span className="text-xs text-gray-500 ml-2">
-                                      {formatTime(message.timestamp)}
-                                    </span>
-                                  </div>
+                                      {message.message}
+                                    </div>
+                                  </>
                                 )}
-                                <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
-                                  message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
-                                }`}>
-                                  {message.message}
-                                </div>
                               </>
                             )}
                           </div>

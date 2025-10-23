@@ -13,6 +13,7 @@ import { ChatConversation } from '../hooks/use-chat-history';
 import { getCountryFlag, getBrowserIcon, getOSIcon, getDeviceIcon } from '@/lib/visitor-icons';
 import { getConversationVisitorName, getConversationAgentName } from '../../types';
 import HistoryChatInterface from './history-chat-interface';
+import { useBanModal } from '@/contexts/ban-modal-context';
 import api from '@/lib/axios';
 
 interface HistorySidebarProps {
@@ -35,6 +36,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
   const [isPhoneEditing, setIsPhoneEditing] = useState(false);
   const [isNotesEditing, setIsNotesEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { openBanModal, setOnBanSuccess } = useBanModal();
   
   // Tags state
   const [availableTags, setAvailableTags] = useState<Array<{tag_id: string, tag_name: string}>>([]);
@@ -304,7 +306,20 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                 <Button 
                   variant="destructive"
                   className="bg-[#cd3642] hover:bg-[#cd3642]/90 h-7  text-white font-semibold text-xs px-1 rounded-sm"
-               
+                  onClick={() => {
+                    setOnBanSuccess(() => onRefreshHistory);
+                    openBanModal({
+                      clientId: conversation.client_id,
+                      ipAddress: conversation.metadata?.ip_address || '',
+                      visitorName: getConversationVisitorName(conversation),
+                      visitorMetadata: {
+                        country: conversation.metadata?.country,
+                        browser: conversation.metadata?.browser,
+                        os: conversation.metadata?.os,
+                        user_agent: conversation.metadata?.user_agent,
+                      },
+                    });
+                  }}
                 >
                   Ban Visitor
                 </Button>
@@ -734,6 +749,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
           </TabsContent>
         </Tabs>
       </div>
+      
     </div>
   );
 };

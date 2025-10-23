@@ -51,6 +51,12 @@ export interface ChatMessage {
   timestamp: string;
   seen_status?: 'delivered' | 'read';
   type?: 'text' | 'attachment' | 'system';
+  attachment?: {
+    file_name: string;
+    url: string;
+    mime_type?: string;
+    size?: number;
+  };
   attachment_name?: string;
   attachment_url?: string;
 }
