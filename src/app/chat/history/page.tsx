@@ -169,7 +169,8 @@ export default function HistoryPage() {
       day: '2-digit',
       hour: 'numeric',
       minute: '2-digit',
-      hour12: true
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
   };
 

@@ -366,10 +366,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
+    // Ensure we're working with UTC timestamps and convert to local time for display
+    const utcDate = new Date(timestamp);
+    return utcDate.toLocaleTimeString([], { 
       hour: 'numeric', 
       minute: '2-digit', 
-      hour12: true 
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
   };
 
@@ -429,7 +432,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           {message.message}
                         </div>
                         <div className="text-xs text-gray-400 ml-2">
-                          {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                          {new Date(message.timestamp).toLocaleTimeString([], { 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            hour12: true,
+                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                          })}
                         </div>
                       </div>
                     ) : (
@@ -444,7 +452,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                message.sender === 'visitor' ? (visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`) : '-')}
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
-                              {new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                              {new Date(message.timestamp).toLocaleTimeString([], { 
+                            hour: 'numeric', 
+                            minute: '2-digit', 
+                            hour12: true,
+                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                          })}
                             </span>
                           </div>
                         )}
@@ -535,7 +548,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input Area or Agent Info Card */}
       {canSend ? (
-    <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border flex-[2] min-h-[90px]">
+    <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border h-[140px]">
     <div className="relative h-full">
             {visitor.isDisconnected ? (
               /* Visitor went offline - show message (no continue option) */
@@ -596,26 +609,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             onKeyPress={handleKeyPress}
             onBlur={handleBlur}
             placeholder=""
-            className={`border-none outline-none resize-none p-3 w-full h-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
-            style={{
-              fontWeight: 100,
-              color: 'black',
-              fontSize: '16px',
-              lineHeight: 'normal',
-            }}
+            className={`text-sm border-none outline-none resize-none p-3 w-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
+       
             disabled={visitor.isDisconnected || visitor.hasLeft}
           />
           {/* Initial overlay text - hidden when there's text OR after typing has started */}
           {chatMessage.trim().length === 0 && !hasStartedTyping && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
               <div 
+                className="flex items-center justify-center h-full"
                 style={{ 
                   fontWeight: 100,
                   color: 'black',
                   fontSize: '16px',
                   lineHeight: 'normal',
-                  padding: '10px',
-                  textAlign: 'center'
+                  textAlign: 'center',
                 }}
               >
                 You're viewing this chat<br />

@@ -759,20 +759,6 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
             status: 'read'
           }
         });
-      } else if (data.type === 'visitor_ended_chat') {
-        // Visitor ended the chat - add system message
-        const systemMessage: ChatMessage = {
-          id: `system-${Date.now()}`,
-          sender: 'system',
-          message: data.message || 'Visitor ended the chat.',
-          timestamp: data.timestamp || new Date().toISOString(),
-          type: 'system'
-        };
-        
-        dispatch({
-          type: 'ADD_MESSAGE',
-          payload: { visitorId: visitor.visitor_id, message: systemMessage }
-        });
       }
     };
 
@@ -1124,12 +1110,20 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     // Connect WebSocket if not already connected (lazy connection)
     const chatState = state.visitorChatStates.get(state.selectedVisitor.visitor_id);
     if (!chatState?.isConnected && !chatState?.isConnecting) {
-      connectWebSocket(state.selectedVisitor);
-      // Wait longer for connection to establish reliably
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await connectWebSocket(state.selectedVisitor);
+      // Wait for connection to be established
+      let attempts = 0;
+      while (attempts < 10) {
+        const currentState = state.visitorChatStates.get(state.selectedVisitor.visitor_id);
+        if (currentState?.isConnected) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
     }
     
-    // Send the message (if not connected yet, it will queue and send when connected)
+    // Send the message
     const sent = wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
       type: 'chat_message',
       message: message.trim(),
@@ -1140,8 +1134,18 @@ export const GlobalChatProvider: React.FC<{ children: ReactNode }> = ({ children
     // If send failed, try reconnecting and sending again
     if (!sent) {
       console.log('First send failed, reconnecting...');
-      connectWebSocket(state.selectedVisitor);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await connectWebSocket(state.selectedVisitor);
+      // Wait for reconnection
+      let attempts = 0;
+      while (attempts < 10) {
+        const currentState = state.visitorChatStates.get(state.selectedVisitor.visitor_id);
+        if (currentState?.isConnected) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
+      
       wsManagerRef.current.send(state.selectedVisitor.visitor_id, {
         type: 'chat_message',
         message: message.trim(),

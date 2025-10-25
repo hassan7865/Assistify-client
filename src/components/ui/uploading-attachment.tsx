@@ -16,10 +16,13 @@ const UploadingAttachment: React.FC<UploadingAttachmentProps> = ({
   isConsecutive = false
 }) => {
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
+    // Ensure we're working with UTC timestamps and convert to local time for display
+    const utcDate = new Date(timestamp);
+    return utcDate.toLocaleTimeString([], { 
       hour: 'numeric', 
       minute: '2-digit', 
-      hour12: true 
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
   };
 

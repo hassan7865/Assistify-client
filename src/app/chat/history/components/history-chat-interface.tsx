@@ -17,10 +17,13 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
   selectedAgent
 }) => {
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
+    // Ensure we're working with UTC timestamps and convert to local time for display
+    const utcDate = new Date(timestamp);
+    return utcDate.toLocaleTimeString([], { 
       hour: 'numeric', 
       minute: '2-digit', 
-      hour12: true 
+      hour12: true,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
   };
 
@@ -93,7 +96,7 @@ const HistoryChatInterface: React.FC<HistoryChatInterfaceProps> = ({
                             senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}
                           />
                         ) : (
-                          <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
+                          <div className={`text-xs whitespace-pre-wrap ${message.sender_type === 'client_agent' ? 'max-w-32' : 'max-w-48'} break-words ${
                             message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
                           }`}>
                             {message.message}
