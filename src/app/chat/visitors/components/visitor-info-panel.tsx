@@ -126,6 +126,7 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     const initialName = visitor.visitor_details?.first_name || '';
     const initialEmail = visitor.visitor_details?.email  || '';
     const initialPhone = visitor.visitor_details?.contact || '';
+    const initialNotes = visitor.visitor_details?.notes || '';
     
     setName(initialName);
     setSavedName(initialName);
@@ -133,13 +134,15 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
     setSavedEmail(initialEmail);
     setPhone(initialPhone);
     setSavedPhone(initialPhone);
+    setNotes(initialNotes);
+    setSavedNotes(initialNotes);
     
     // If there's no saved value, start in editing mode
     setIsNameEditing(!initialName);
     setIsEmailEditing(!initialEmail);
     setIsPhoneEditing(!initialPhone);
-    setIsNotesEditing(true); // Notes always start in editing mode
-  }, [visitor.visitor_details?.first_name, visitor.visitor_details?.email, visitor.visitor_details?.contact]);
+    setIsNotesEditing(!initialNotes); // Notes start in editing mode if empty
+  }, [visitor.visitor_details?.first_name, visitor.visitor_details?.email, visitor.visitor_details?.contact, visitor.visitor_details?.notes]);
 
   // Fetch tags when component mounts
   useEffect(() => {
@@ -179,20 +182,25 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
       const visitorIp = visitor.visitor_details?.ip_address || visitor.metadata?.ip_address;
       if (source === 'visitor' && visitor_details.ip_address === visitorIp) {
         // Update form fields
-        if (visitor_details.first_name) {
-          setName(visitor_details.first_name);
-          setSavedName(visitor_details.first_name);
+        if (visitor_details.first_name !== undefined) {
+          setName(visitor_details.first_name || '');
+          setSavedName(visitor_details.first_name || '');
           setIsNameEditing(false);
         }
-        if (visitor_details.email) {
-          setEmail(visitor_details.email);
-          setSavedEmail(visitor_details.email);
+        if (visitor_details.email !== undefined) {
+          setEmail(visitor_details.email || '');
+          setSavedEmail(visitor_details.email || '');
           setIsEmailEditing(false);
         }
-        if (visitor_details.contact) {
-          setPhone(visitor_details.contact);
-          setSavedPhone(visitor_details.contact);
+        if (visitor_details.contact !== undefined) {
+          setPhone(visitor_details.contact || '');
+          setSavedPhone(visitor_details.contact || '');
           setIsPhoneEditing(false);
+        }
+        if (visitor_details.notes !== undefined) {
+          setNotes(visitor_details.notes || '');
+          setSavedNotes(visitor_details.notes || '');
+          setIsNotesEditing(false);
         }
       }
     };
@@ -205,7 +213,7 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
   }, [visitor.visitor_details?.ip_address, visitor.metadata?.ip_address]);
 
   // Save visitor details using visitor-details API
-  const saveVisitorDetails = async (updates: { first_name?: string; email?: string; contact?: string }) => {
+  const saveVisitorDetails = async (updates: { first_name?: string; email?: string; contact?: string; notes?: string }) => {
     const ipAddress = visitor.visitor_details?.ip_address || visitor.metadata?.ip_address;
     if (!ipAddress) {
       console.error('No IP address available to save visitor details');
@@ -219,6 +227,7 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
         last_name: null,
         email: updates.email !== undefined ? updates.email : savedEmail || null,
         contact: updates.contact !== undefined ? updates.contact : savedPhone || null,
+        notes: updates.notes !== undefined ? updates.notes : savedNotes || null,
       });
       
       if (response.data) {
@@ -266,10 +275,12 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
   };
 
   // Handle saving notes
-  const handleSaveNotes = () => {
-    // For now, just save locally (can be extended to save to backend)
-    setSavedNotes(notes.trim());
-    setIsNotesEditing(false);
+  const handleSaveNotes = async () => {
+    const success = await saveVisitorDetails({ notes: notes.trim() });
+    if (success) {
+      setSavedNotes(notes.trim());
+      setIsNotesEditing(false);
+    }
   };
 
   // Handle Enter key press on name input

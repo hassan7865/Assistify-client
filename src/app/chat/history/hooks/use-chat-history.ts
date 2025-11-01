@@ -15,6 +15,7 @@ export interface ChatConversation {
     last_name?: string;
     email?: string;
     contact?: string;
+    notes?: string;
     past_visits?: number;
     chat_count?: number;
   };

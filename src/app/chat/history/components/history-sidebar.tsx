@@ -28,7 +28,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
   const [name, setName] = useState(conversation.visitor_details?.first_name || conversation.metadata?.name || '');
   const [email, setEmail] = useState(conversation.visitor_details?.email || conversation.metadata?.email || '');
   const [phone, setPhone] = useState(conversation.visitor_details?.contact || "");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(conversation.visitor_details?.notes || "");
   
   // Edit states
   const [isNameEditing, setIsNameEditing] = useState(false);
@@ -92,7 +92,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
   };
 
   // Save visitor details using visitor-details API
-  const saveVisitorDetails = async (updates: { first_name?: string; email?: string; contact?: string }) => {
+  const saveVisitorDetails = async (updates: { first_name?: string; email?: string; contact?: string; notes?: string }) => {
     const ipAddress = conversation.metadata?.ip_address;
     if (!ipAddress) {
       console.error('No IP address available to save visitor details');
@@ -107,6 +107,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
         last_name: null,
         email: updates.email !== undefined ? updates.email : email || null,
         contact: updates.contact !== undefined ? updates.contact : phone || null,
+        notes: updates.notes !== undefined ? updates.notes : notes || null,
       });
       
       if (response.data) {
@@ -163,9 +164,16 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
     }
   };
 
-  // Handle saving notes (local only)
-  const handleSaveNotes = () => {
-    setIsNotesEditing(false);
+  // Handle saving notes
+  const handleSaveNotes = async () => {
+    const success = await saveVisitorDetails({ notes: notes.trim() });
+    if (success) {
+      setIsNotesEditing(false);
+      // Refresh history list if callback provided
+      if (onRefreshHistory) {
+        onRefreshHistory();
+      }
+    }
   };
 
   // Tags functions
@@ -449,9 +457,10 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                         handleSaveNotes();
                       } else if (e.key === 'Escape') {
                         setIsNotesEditing(false);
-                        setNotes("");
+                        setNotes(conversation.visitor_details?.notes || "");
                       }
                     }}
+                    onBlur={handleSaveNotes}
                     autoFocus={isNotesEditing}
                     rows={3}
                     className="w-full px-2 py-1 border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent resize-none bg-white rounded-sm"

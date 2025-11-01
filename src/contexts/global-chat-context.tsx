@@ -35,6 +35,7 @@ interface Visitor {
     last_name?: string;
     email?: string;
     contact?: string;
+    notes?: string;
     past_visit?: number;
     chat_count?: number;
     ip_address?: string;
