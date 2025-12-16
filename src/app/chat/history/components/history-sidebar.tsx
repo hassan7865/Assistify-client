@@ -502,23 +502,34 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({ conversation, onClose, 
                     <div className="w-4 h-4 flex items-center justify-center">
                       <ArrowDown className="w-3 h-3 text-gray-600" />
                     </div>
-                    <div>Direct Path</div>
+                    <div>
+                      {conversation.metadata?.platform 
+                        ? conversation.metadata.platform.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                        : 'Direct Path'}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-600">
                     <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <a 
-                          href={conversation.metadata?.referrer || '#'} 
+                          href={conversation.metadata?.page_url || conversation.metadata?.referrer || '#'} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="truncate text-gray-600 hover:text-blue-600 hover:underline cursor-pointer"
                         >
-                          {conversation.metadata?.referrer || '-'}
+                          {conversation.metadata?.page_url || conversation.metadata?.referrer || '-'}
                         </a>
                       </TooltipTrigger>
                       <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
-                        <p>{conversation.metadata?.referrer || 'No referrer available'}</p>
+                        <div className="space-y-1">
+                          {conversation.metadata?.referrer && <p>Referrer: {conversation.metadata.referrer}</p>}
+                          {conversation.metadata?.matchtype && <p>Match Type: {conversation.metadata.matchtype}</p>}
+                          {conversation.metadata?.keyword && <p>Keyword: {conversation.metadata.keyword}</p>}
+                          {!conversation.metadata?.referrer && !conversation.metadata?.matchtype && !conversation.metadata?.keyword && (
+                            <p>No referrer available</p>
+                          )}
+                        </div>
                       </TooltipContent>
                     </Tooltip>
                       </div>

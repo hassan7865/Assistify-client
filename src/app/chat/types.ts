@@ -40,6 +40,9 @@ export interface Visitor {
     device_type?: string;
     browser?: string;
     os?: string;
+    matchtype?: string;
+    keyword?: string;
+    platform?: string;
   };
 }
 

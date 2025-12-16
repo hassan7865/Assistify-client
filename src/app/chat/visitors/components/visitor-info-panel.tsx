@@ -610,7 +610,11 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
               <div className="w-4 h-4 flex items-center justify-center">
                 <ArrowDown className="w-3 h-3 text-gray-600" />
               </div>
-              <div>Direct Path</div>
+              <div>
+                {visitor.metadata?.platform 
+                  ? visitor.metadata.platform.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                  : 'Direct Path'}
+              </div>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-600">
               <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
@@ -626,7 +630,14 @@ const VisitorInfoPanel: React.FC<VisitorInfoPanelProps> = ({ visitor, chatMessag
                   </a>
                 </TooltipTrigger>
                 <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden">
-                  <p>{visitor.metadata?.referrer || 'No referrer available'}</p>
+                  <div className="space-y-1">
+                    {visitor.metadata?.referrer && <p>Referrer: {visitor.metadata.referrer}</p>}
+                    {visitor.metadata?.matchtype && <p>Match Type: {visitor.metadata.matchtype}</p>}
+                    {visitor.metadata?.keyword && <p>Keyword: {visitor.metadata.keyword}</p>}
+                    {!visitor.metadata?.referrer && !visitor.metadata?.matchtype && !visitor.metadata?.keyword && (
+                      <p>No referrer available</p>
+                    )}
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </div>

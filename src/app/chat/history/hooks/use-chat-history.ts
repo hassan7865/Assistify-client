@@ -43,6 +43,10 @@ export interface ChatConversation {
     user_agent?: string;
     referrer?: string;
     page_url?: string;
+    page_title?: string;
+    matchtype?: string;
+    keyword?: string;
+    platform?: string;
   };
   messages: Array<{
     sender_type: 'visitor' | 'client_agent' | 'system';
