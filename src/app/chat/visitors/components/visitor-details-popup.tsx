@@ -24,10 +24,10 @@ interface VisitorDetailsPopupProps {
   onChatEnded?: () => void;
 }
 
-const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({ 
-  visitor, 
+const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
+  visitor,
   selectedAgent,
-  isOpen, 
+  isOpen,
   showEndChatDialog,
   onClose,
   onMinimize,
@@ -36,7 +36,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
   onChatEnded
 }) => {
   const { chatMessages, isSwitchingVisitor, isEndingChat, currentAgent, hasActiveConnection, closeMinimizedChat } = useGlobalChat();
-  
+
   // Determine if we should show end chat dialog or just close
   // Show dialog only if: connected, visitor hasn't left, and visitor is not offline
   const shouldShowEndDialog = hasActiveConnection && !visitor.hasLeft && !visitor.isDisconnected && currentAgent?.id;
@@ -47,8 +47,8 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div 
-      key={visitor.visitor_id} 
+    <div
+      key={visitor.visitor_id}
       className="fixed right-0 top-0 h-full w-[600px] bg-gray-100 shadow-xl flex flex-col animate-in slide-in-from-right duration-300 z-50 border-l border-gray-500 pb-4"
     >
       {/* Switching Overlay */}
@@ -63,15 +63,15 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-[#303030] text-white">
         <div className="flex items-center gap-2">
-           <div className="w-6 h-6 rounded-sm bg-[#10418c] flex items-center justify-center flex-shrink-0">
-          <img 
-            src="/user.png" 
-            alt="User" 
-            className="w-4 h-4 object-contain"
-          />
+          <div className="w-6 h-6 rounded-sm bg-[#10418c] flex items-center justify-center flex-shrink-0">
+            <img
+              src="/user.png"
+              alt="User"
+              className="w-4 h-4 object-contain"
+            />
           </div>
-         
-          <span style={{ fontSize: '14px' }} className="font-medium text-white">{visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8)}</span>
+
+          <span style={{ fontSize: '14px' }} className="font-medium text-white">{visitor.visitor_details?.first_name || visitor.visitor_id?.substring(0, 8)}</span>
           {getCountryFlag(visitor.metadata?.country)}
           {getBrowserIcon(visitor.metadata?.browser, visitor.metadata?.user_agent, 'h-3 w-3')}
           {getOSIcon(visitor.metadata?.os, visitor.metadata?.user_agent, 'h-3 w-3')}
@@ -81,7 +81,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
             Actions
             <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
-          <button 
+          <button
             onClick={() => {
               // If visitor is disconnected, just minimize without session cleanup
               if (visitor.isDisconnected) {
@@ -95,7 +95,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
           >
             <Minus className="h-3 w-3 text-white" />
           </button>
-          <button 
+          <button
             onClick={() => {
               // Always call onClose - handleCloseWithDialog will determine the behavior
               // based on connection status, visitor state, etc.
@@ -103,12 +103,12 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
             }}
             className="h-7 w-7 rounded-full flex items-center justify-center bg-[#858585] cursor-pointer"
             title={
-              visitor.isDisconnected 
-                ? 'Close chat (visitor offline)' 
+              visitor.isDisconnected
+                ? 'Close chat (visitor offline)'
                 : visitor.hasLeft
-                  ? 'Close chat (visitor left)' 
-                  : !hasActiveConnection 
-                    ? 'Close chat (not connected)' 
+                  ? 'Close chat (visitor left)'
+                  : !hasActiveConnection
+                    ? 'Close chat (not connected)'
                     : 'Leave chat'
             }
           >
@@ -128,7 +128,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
               <p className="text-xs text-gray-600 mb-4">
                 You will leave this conversation. The visitor will remain connected and can still chat with other agents.
               </p>
-              
+
               <div className="flex gap-2 justify-end">
                 <Button
                   onClick={onEndChat}
@@ -159,7 +159,7 @@ const VisitorDetailsPopup: React.FC<VisitorDetailsPopupProps> = ({
           <>
             {/* Left Panel - Chat */}
             <div className="flex-1 flex flex-col min-w-0">
-              <ChatInterface 
+              <ChatInterface
                 visitor={visitor}
                 selectedAgent={selectedAgent}
                 onClose={onClose}

@@ -25,17 +25,16 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
         {minimizedChats.map((chat) => {
           // Check if this chat is currently active (selectedVisitor matches this chat)
           const isActive = selectedVisitor?.visitor_id === chat.visitor_id;
-          
+
           return (
             <div
               key={chat.visitor_id}
-              className={`group flex items-center min-w-0 flex-shrink-0 cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden relative ${
-                isActive 
-                  ? 'bg-gray-600 hover:bg-gray-500 border-t-2 border-gray-400' 
+              className={`group flex items-center min-w-0 flex-shrink-0 cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden relative ${isActive
+                  ? 'bg-gray-600 hover:bg-gray-500 border-t-2 border-gray-400'
                   : chat.hasUnreadMessages
                     ? 'hover:bg-[#F78E3F]'
                     : 'hover:bg-[#333333]'
-              }`}
+                }`}
               style={{
                 width: '9rem',
                 height: '1.75rem', // Same height for all chats
@@ -55,18 +54,18 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
             >
               {/* User icon */}
               <div className="w-4 h-4 bg-[#10418c] rounded-sm flex items-center justify-center flex-shrink-0">
-                <img 
-                  src="/user.png" 
-                  alt="User" 
+                <img
+                  src="/user.png"
+                  alt="User"
                   className="w-3 h-3 object-contain"
                 />
               </div>
-              
+
               {/* Visitor Name - always visible with better font */}
               <div className="text-white text-xs font-medium whitespace-nowrap ml-1 flex-1 text-center truncate">
-                {chat.visitor_details?.first_name || `#${chat.visitor_id.substring(0, 8)}`}
+                {chat.visitor_details?.first_name || `#${chat.visitor_id?.substring(0, 8)}`}
               </div>
-              
+
               {/* Badge: Disconnected icon OR Message count - transforms to close button on hover */}
               {!isActive && (
                 <div
@@ -74,13 +73,12 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                     e.stopPropagation();
                     onClose(chat.visitor_id);
                   }}
-                  className={`${
-                    chat.isDisconnected 
-                      ? 'bg-red-500 hover:bg-red-600' 
-                      : chat.hasUnreadMessages 
-                        ? 'bg-orange-500 hover:bg-orange-600' 
+                  className={`${chat.isDisconnected
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : chat.hasUnreadMessages
+                        ? 'bg-orange-500 hover:bg-orange-600'
                         : 'bg-gray-500 hover:bg-gray-600'
-                  } text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center flex-shrink-0 ml-2 cursor-pointer transition-all duration-200`}
+                    } text-white text-xs font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center flex-shrink-0 ml-2 cursor-pointer transition-all duration-200`}
                   title={chat.isDisconnected ? "Close chat (visitor disconnected)" : "Close chat"}
                 >
                   <span className="group-hover:hidden">
@@ -88,9 +86,9 @@ const MinimizedChatTabs: React.FC<MinimizedChatTabsProps> = ({
                       <WifiOff className="h-2 w-2" />
                     ) : (
                       <span className="text-xs">
-                       { chat.message_count || 0}
-                        </span>
-                      
+                        {chat.message_count || 0}
+                      </span>
+
                     )}
                   </span>
                   <X className="h-3 w-3 hidden group-hover:block" />

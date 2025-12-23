@@ -69,8 +69,8 @@ interface ChatInterfaceProps {
   onChatEnded?: () => void;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
-  visitor, 
+const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  visitor,
   selectedAgent,
   onClose,
   onChatEnded
@@ -90,13 +90,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const ratingPopoverRef = useRef<HTMLDivElement>(null);
-  const { 
-    chatMessages, 
-    isConnected, 
-    isConnecting, 
-    isTyping, 
+  const {
+    chatMessages,
+    isConnected,
+    isConnecting,
+    isTyping,
     isLoadingHistory,
-    currentAgent, 
+    currentAgent,
     canSend,
     hasStartedTyping,
     setHasStartedTyping,
@@ -204,7 +204,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const currentPosition = textareaRef.current?.selectionStart || 0;
     const newMessage = chatMessage.slice(0, currentPosition) + emoji + chatMessage.slice(currentPosition);
     setChatMessage(newMessage);
-    
+
     // Focus back to textarea and set cursor position after emoji
     setTimeout(() => {
       if (textareaRef.current) {
@@ -212,7 +212,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         textareaRef.current.setSelectionRange(currentPosition + emoji.length, currentPosition + emoji.length);
       }
     }, 0);
-    
+
     setShowEmojiPicker(false);
   };
 
@@ -241,7 +241,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const fileKey = `${file.name}-${Date.now()}`;
     setUploadingFiles(prev => new Set(prev).add(fileKey));
-    
+
     // Remove from pending files immediately when upload starts
     setPendingFiles(prev => prev.filter(f => f !== file));
 
@@ -306,12 +306,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (isConnected && chatMessages.length > 0) {
       // Send message_seen for visitor messages that are delivered but not read
       const unseenVisitorMessages = chatMessages
-        .filter(msg => 
-          msg.sender === 'visitor' && 
-          msg.seen_status === 'delivered' && 
+        .filter(msg =>
+          msg.sender === 'visitor' &&
+          msg.seen_status === 'delivered' &&
           !seenMessagesRef.current.has(msg.id)
         );
-      
+
       // Send seen notification for each delivered message
       unseenVisitorMessages.forEach(msg => {
         seenMessagesRef.current.add(msg.id);
@@ -329,7 +329,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
 
     setLoadingPastHistory(true);
-    
+
     try {
       const response = await api.get(`/chat/history/${user.client_id}`, {
         params: {
@@ -369,9 +369,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const formatTime = (timestamp: string) => {
     // Ensure we're working with UTC timestamps and convert to local time for display
     const utcDate = new Date(timestamp);
-    return utcDate.toLocaleTimeString([], { 
-      hour: 'numeric', 
-      minute: '2-digit', 
+    return utcDate.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
       hour12: true,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
@@ -390,12 +390,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div className="bg-white shadow-sm flex-[3] min-h-0 overflow-hidden flex flex-col mt-2">
         {/* Messages Container */}
         <div className="flex-1 bg-gray-50 relative min-h-0">
-          <div 
-            className={`h-full p-4 space-y-2 ${
-              chatMessages.length > 0 || isLoadingHistory || isConnecting || (!isConnected && !isConnecting) || isTyping 
-                ? 'overflow-y-auto custom-scrollbar' 
+          <div
+            className={`h-full p-4 space-y-2 ${chatMessages.length > 0 || isLoadingHistory || isConnecting || (!isConnected && !isConnecting) || isTyping
+                ? 'overflow-y-auto custom-scrollbar'
                 : 'overflow-hidden'
-            }`}
+              }`}
           >
             {isLoadingHistory ? (
               <div className="flex items-center justify-center h-full">
@@ -410,22 +409,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </div>
             ) : (
               chatMessages.map((message, index) => {
-                const isConsecutiveFromSameSender = index > 0 && 
+                const isConsecutiveFromSameSender = index > 0 &&
                   chatMessages[index - 1].sender === message.sender &&
                   chatMessages[index - 1].sender_id === message.sender_id && // Check actual sender ID for multi-agent
                   chatMessages[index - 1].sender !== 'system' && // Exclude system messages
                   new Date(message.timestamp).getTime() - new Date(chatMessages[index - 1].timestamp).getTime() < 30000;
-              
+
                 // Check if this is a system message
                 const isSystemMessage = message.sender === 'system';
-                
+
                 return (
                   <div key={message.id} className="flex flex-col">
                     {/* Add separator line for non-consecutive messages */}
                     {!isConsecutiveFromSameSender && index > 0 && !isSystemMessage && (
                       <div className="border-b border-gray-400 border-dashed my-2"></div>
                     )}
-                    
+
                     {isSystemMessage ? (
                       // Special styling for agent joined message
                       <div className="flex justify-center items-center">
@@ -433,9 +432,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           {message.message}
                         </div>
                         <div className="text-xs text-gray-400 ml-2">
-                          {new Date(message.timestamp).toLocaleTimeString([], { 
-                            hour: 'numeric', 
-                            minute: '2-digit', 
+                          {new Date(message.timestamp).toLocaleTimeString([], {
+                            hour: 'numeric',
+                            minute: '2-digit',
                             hour12: true,
                             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
                           })}
@@ -445,32 +444,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       <>
                         {!isConsecutiveFromSameSender && (
                           <div className="flex items-center justify-between">
-                            <span className={`text-xs font-medium ${
-                              message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
-                            }`}>
-                              {message.sender_name || 
-                               (message.sender === 'agent' ? 'Agent' : 
-                               message.sender === 'visitor' ? (visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`) : '-')}
+                            <span className={`text-xs font-medium ${message.sender === 'agent' ? 'text-gray-900' : 'text-blue-600'
+                              }`}>
+                              {message.sender_name ||
+                                (message.sender === 'agent' ? 'Agent' :
+                                  message.sender === 'visitor' ? (visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id?.substring(0, 8)}`) : '-')}
                             </span>
                             <span className="text-xs text-gray-500 ml-2">
-                              {new Date(message.timestamp).toLocaleTimeString([], { 
-                            hour: 'numeric', 
-                            minute: '2-digit', 
-                            hour12: true,
-                            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                          })}
+                              {new Date(message.timestamp).toLocaleTimeString([], {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                              })}
                             </span>
                           </div>
                         )}
-                        { (message as any).attachment ? (
+                        {(message as any).attachment ? (
                           <AttachmentMessage
                             attachment={(message as any).attachment}
                             senderType={message.sender === 'agent' ? 'agent' : 'visitor'}
                           />
                         ) : (
-                          <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
-                            message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
-                          }`}>
+                          <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${message.sender === 'agent' ? 'text-gray-900' : 'text-gray-700'
+                            }`}>
                             {message.message}
                           </div>
                         )}
@@ -496,7 +493,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         ) : (
                           // Empty circle for pending messages
                           <svg className="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                            <circle cx="12" cy="12" r="10" strokeWidth="2" />
                           </svg>
                         )}
                       </div>
@@ -505,13 +502,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 );
               })
             )}
-            
+
             {/* Uploading Progress Messages */}
             {Array.from(uploadingFiles).map((fileKey) => {
               // Extract filename from the fileKey (format: "filename-timestamp")
               const fileName = fileKey.split('-').slice(0, -1).join('-');
               const timestamp = new Date().toISOString();
-              
+
               return (
                 <div key={fileKey} className="flex flex-col">
                   <UploadingAttachment
@@ -524,14 +521,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
               );
             })}
-            
+
             {/* Connection Status */}
             {isConnecting && (
               <div className="text-xs text-gray-500 text-center py-2">
                 Connecting...
               </div>
             )}
-                  
+
             {/* Typing Indicator */}
             {isTyping && (
               <div className="flex justify-center items-center py-2">
@@ -540,7 +537,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Auto-scroll anchor */}
             <div ref={messagesEndRef} />
           </div>
@@ -549,14 +546,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input Area or Agent Info Card */}
       {canSend ? (
-    <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border h-[140px]">
-    <div className="relative h-full">
+        <div className="bg-white shadow-sm border border-gray-200 focus-within:border-blue-800 focus-within:border h-[140px]">
+          <div className="relative h-full">
             {visitor.isDisconnected ? (
               /* Visitor went offline - show message (no continue option) */
               <div className="relative h-full w-full">
                 <div className="absolute inset-0 flex items-center justify-center p-2 bg-gray-100">
                   <div className="text-center">
-                    <div 
+                    <div
                       className="mb-1"
                       style={{
                         fontWeight: 100,
@@ -565,7 +562,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         lineHeight: 'normal',
                       }}
                     >
-                      {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has gone offline
+                      {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id?.substring(0, 8)}`} has gone offline
                     </div>
                     <div className="text-xs text-gray-500">
                       The visitor has left the site
@@ -578,7 +575,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               <div className="relative h-full w-full">
                 <div className="absolute inset-0 flex items-center justify-center p-2 bg-gray-50">
                   <div className="text-center">
-                    <div 
+                    <div
                       className="flex flex-wrap items-center justify-center gap-2"
                       style={{
                         fontWeight: 100,
@@ -588,7 +585,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       }}
                     >
                       <span>
-                        {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id.substring(0, 8)}`} has left the chat
+                        {visitor.visitor_details?.first_name || `Visitor #${visitor.visitor_id?.substring(0, 8)}`} has left the chat
                       </span>
                       <button
                         onClick={continueChat}
@@ -601,125 +598,125 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
               </div>
             ) : (
-        /* Unified input area: overlay hides and actions show as soon as typing starts */
-        <div className="relative h-full w-full">
-          <textarea
-            ref={textareaRef}
-            value={chatMessage}
-            onChange={handleTyping}
-            onKeyPress={handleKeyPress}
-            onBlur={handleBlur}
-            placeholder=""
-            className={`text-sm border-none outline-none resize-none p-3 w-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
-       
-            disabled={visitor.isDisconnected || visitor.hasLeft}
-          />
-          {/* Initial overlay text - hidden when there's text OR after typing has started */}
-          {chatMessage.trim().length === 0 && !hasStartedTyping && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
-              <div 
-                className="flex items-center justify-center h-full"
-                style={{ 
-                  fontWeight: 100,
-                  color: 'black',
-                  fontSize: '16px',
-                  lineHeight: 'normal',
-                  textAlign: 'center',
-                }}
-              >
-                You're viewing this chat<br />
-                Start typing to join the chat.
-              </div>
-            </div>
-          )}
-          
+              /* Unified input area: overlay hides and actions show as soon as typing starts */
+              <div className="relative h-full w-full">
+                <textarea
+                  ref={textareaRef}
+                  value={chatMessage}
+                  onChange={handleTyping}
+                  onKeyPress={handleKeyPress}
+                  onBlur={handleBlur}
+                  placeholder=""
+                  className={`text-sm border-none outline-none resize-none p-3 w-full ${chatMessage.trim().length === 0 ? 'caret-transparent' : ''}`}
 
-          {hasStartedTyping && (
-          <div className="absolute bottom-2 right-2 flex items-center gap-4">
-            <button 
-              onClick={handleEmojiClick}
-              className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <Smile className="h-4 w-4" />
-              <span>Emoji</span>
-            </button>
-             <button 
-               onClick={handleRatingClick}
-               className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
-             >
-               <ThumbsUp className="h-4 w-4" />
-               <span>Rating</span>
-             </button>
-            <label className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 cursor-pointer">
-              <Paperclip className="h-4 w-4" />
-              <span>Attach</span>
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (files.length) {
-                    setPendingFiles(prev => [...prev, ...files]);
-                    // Auto-upload files when selected
-                    files.forEach(file => handleFileUpload(file));
-                  }
-                  e.currentTarget.value = '';
-                }}
-              />
-            </label>
+                  disabled={visitor.isDisconnected || visitor.hasLeft}
+                />
+                {/* Initial overlay text - hidden when there's text OR after typing has started */}
+                {chatMessage.trim().length === 0 && !hasStartedTyping && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-2">
+                    <div
+                      className="flex items-center justify-center h-full"
+                      style={{
+                        fontWeight: 100,
+                        color: 'black',
+                        fontSize: '16px',
+                        lineHeight: 'normal',
+                        textAlign: 'center',
+                      }}
+                    >
+                      You're viewing this chat<br />
+                      Start typing to join the chat.
+                    </div>
+                  </div>
+                )}
+
+
+                {hasStartedTyping && (
+                  <div className="absolute bottom-2 right-2 flex items-center gap-4">
+                    <button
+                      onClick={handleEmojiClick}
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+                    >
+                      <Smile className="h-4 w-4" />
+                      <span>Emoji</span>
+                    </button>
+                    <button
+                      onClick={handleRatingClick}
+                      className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      <span>Rating</span>
+                    </button>
+                    <label className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 cursor-pointer">
+                      <Paperclip className="h-4 w-4" />
+                      <span>Attach</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length) {
+                            setPendingFiles(prev => [...prev, ...files]);
+                            // Auto-upload files when selected
+                            files.forEach(file => handleFileUpload(file));
+                          }
+                          e.currentTarget.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* Rating popover */}
+                {showRatingModal && (
+                  <div
+                    ref={ratingPopoverRef}
+                    className="absolute bottom-12 right-2 z-50"
+                  >
+                    <div className="bg-white shadow-lg rounded-md border border-gray-200 p-3 w-64">
+                      <div className="text-sm text-gray-800 mb-3">Request a rating from the visitor</div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleSendRatingRequest}
+                          className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
+                        >
+                          Send
+                        </button>
+                        <button
+                          onClick={handleCancelRating}
+                          className="px-2 py-1 text-xs bg-white border border-gray-300 text-gray-800 rounded hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Emoji Picker */}
+                {showEmojiPicker && (
+                  <div
+                    ref={emojiPickerRef}
+                    className="absolute bottom-12 right-2 z-50"
+                  >
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiSelect}
+                      width={300}
+                      height={400}
+                      searchDisabled={false}
+                      skinTonesDisabled={false}
+                      previewConfig={{
+                        showPreview: true,
+                        defaultEmoji: '1f60a'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          )}
-
-          {/* Rating popover */}
-          {showRatingModal && (
-            <div 
-              ref={ratingPopoverRef}
-              className="absolute bottom-12 right-2 z-50"
-            >
-              <div className="bg-white shadow-lg rounded-md border border-gray-200 p-3 w-64">
-                <div className="text-sm text-gray-800 mb-3">Request a rating from the visitor</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleSendRatingRequest}
-                    className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
-                  >
-                    Send
-                  </button>
-                  <button
-                    onClick={handleCancelRating}
-                    className="px-2 py-1 text-xs bg-white border border-gray-300 text-gray-800 rounded hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Emoji Picker */}
-          {showEmojiPicker && (
-            <div 
-              ref={emojiPickerRef}
-              className="absolute bottom-12 right-2 z-50"
-            >
-              <EmojiPicker
-                onEmojiClick={handleEmojiSelect}
-                width={300}
-                height={400}
-                searchDisabled={false}
-                skinTonesDisabled={false}
-                previewConfig={{
-                  showPreview: true,
-                  defaultEmoji: '1f60a'
-                }}
-              />
-            </div>
-          )}
         </div>
-      )}
-    </div>
-  </div>
       ) : (
         <div className="bg-white shadow-sm p-4">
           <div className="flex items-center justify-center py-8">
@@ -768,50 +765,49 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     </thead>
                     <tbody>
                       {pastChatHistory.map((chat) => (
-                        <tr 
+                        <tr
                           key={chat.chat_session_id}
-                          className={`cursor-pointer hover:bg-gray-100 border-b border-gray-100 ${
-                            selectedPastChat?.chat_session_id === chat.chat_session_id ? 'bg-blue-50' : ''
-                          }`}
+                          className={`cursor-pointer hover:bg-gray-100 border-b border-gray-100 ${selectedPastChat?.chat_session_id === chat.chat_session_id ? 'bg-blue-50' : ''
+                            }`}
                           onClick={() => setSelectedPastChat(chat)}
                         >
-                        <td className="p-2 text-[11px] font-medium">
-                          {chat.agent_info?.name || '—'}
-                        </td>
-                        <td className="p-2 text-[11px]">
-                          {chat.session_rating ? (
-                            <div className="flex items-center justify-center">
-                              {chat.session_rating.rating === 'thumbs_up' ? (
-                                <ThumbsUp className="w-4 h-4 text-green-600" />
-                              ) : chat.session_rating.rating === 'thumbs_down' ? (
-                                <ThumbsDown className="w-4 h-4 text-red-600" />
-                              ) : (
-                                <span className="text-gray-600 text-xs">{chat.session_rating.rating}</span>
-                              )}
+                          <td className="p-2 text-[11px] font-medium">
+                            {chat.agent_info?.name || '—'}
+                          </td>
+                          <td className="p-2 text-[11px]">
+                            {chat.session_rating ? (
+                              <div className="flex items-center justify-center">
+                                {chat.session_rating.rating === 'thumbs_up' ? (
+                                  <ThumbsUp className="w-4 h-4 text-green-600" />
+                                ) : chat.session_rating.rating === 'thumbs_down' ? (
+                                  <ThumbsDown className="w-4 h-4 text-red-600" />
+                                ) : (
+                                  <span className="text-gray-600 text-xs">{chat.session_rating.rating}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="p-2 text-[11px] text-gray-600">
+                            {new Date(chat.created_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="p-2 text-[11px]">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px]">
+                                {chat.message_count}
+                              </span>
+                              <span className="truncate">
+                                {chat.last_message?.content || 'No messages'}
+                              </span>
                             </div>
-                          ) : (
-                            <span className="text-gray-400 text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="p-2 text-[11px] text-gray-600">
-                          {new Date(chat.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </td>
-                        <td className="p-2 text-[11px]">
-                          <div className="flex items-center gap-2">
-                            <span className="bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full text-[10px]">
-                              {chat.message_count}
-                            </span>
-                            <span className="truncate">
-                              {chat.last_message?.content || 'No messages'}
-                            </span>
-                          </div>
-                        </td>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -834,7 +830,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                       </button>
-                      <button 
+                      <button
                         className="p-1 rounded-full hover:bg-gray-100"
                         onClick={() => setSelectedPastChat(null)}
                       >
@@ -884,8 +880,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       <span className="text-gray-600 text-xs w-24">Tags:</span>
                       <span className="text-gray-900 text-xs">—</span>
                     </div>
-                   
-      
+
+
                   </div>
                 </div>
 
@@ -895,20 +891,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     {/* Real messages from selected past chat */}
                     {selectedPastChat.messages && selectedPastChat.messages.length > 0 ? (
                       selectedPastChat.messages.map((message, index) => {
-                        const isConsecutiveFromSameSender = index > 0 && 
+                        const isConsecutiveFromSameSender = index > 0 &&
                           selectedPastChat.messages![index - 1].sender_type === message.sender_type &&
                           selectedPastChat.messages![index - 1].sender_id === message.sender_id && // Check actual sender ID for multi-agent
                           message.sender_type !== 'system';
-                        
+
                         const isSystemMessage = message.sender_type === 'system';
-                        
+
                         return (
                           <div key={index} className="flex flex-col">
                             {/* Add separator line for non-consecutive messages */}
                             {!isConsecutiveFromSameSender && index > 0 && !isSystemMessage && (
                               <div className="border-b border-gray-400 border-dashed my-2"></div>
                             )}
-                            
+
                             {isSystemMessage ? (
                               // Special styling for system messages - copied from history sidebar
                               <div className="flex justify-center items-center">
@@ -924,13 +920,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                 <>
                                   {!isConsecutiveFromSameSender && (
                                     <div className="flex items-center justify-between">
-                                      <span className={`text-xs font-medium ${
-                                        message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
-                                      }`}>
-                                        {message.sender_name || 
-                                         (message.sender_type == 'client_agent' ? 
-                                           (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') : 
-                                         message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || '#Visitor ' + selectedPastChat.visitor_id?.substring(0, 8)) : '-')}
+                                      <span className={`text-xs font-medium ${message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-blue-600'
+                                        }`}>
+                                        {message.sender_name ||
+                                          (message.sender_type == 'client_agent' ?
+                                            (message.sender_id === selectedPastChat.agent_id ? (selectedPastChat.agent_info?.name || 'Agent') : 'Agent') :
+                                            message.sender_type == 'visitor' ? (selectedPastChat.visitor_details?.first_name || '#Visitor ' + selectedPastChat.visitor_id?.substring(0, 8)) : '-')}
                                       </span>
                                       <span className="text-xs text-gray-500 ml-2">
                                         {formatTime(message.timestamp)}
@@ -943,9 +938,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                       senderType={message.sender_type === 'client_agent' ? 'agent' : 'visitor'}
                                     />
                                   ) : (
-                                    <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${
-                                      message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
-                                    }`}>
+                                    <div className={`text-xs whitespace-pre-wrap max-w-48 break-words ${message.sender_type === 'client_agent' ? 'text-gray-900' : 'text-gray-700'
+                                      }`}>
                                       {message.message}
                                     </div>
                                   )}
@@ -964,9 +958,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
               </div>
             )}
-           </div>
-         )}
-       </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -975,32 +969,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Chat Tabs */}
       <div className="bg-gray-100 border-b border-gray-200">
         <div className="flex w-fit bg-transparent h-auto p-0 gap-0">
-          <button 
+          <button
             onClick={() => setActiveTab('current')}
-            className={`text-xs font-bold px-2 py-1 border-t border-b border-l border-r rounded-none ${
-              activeTab === 'current' 
-                ? 'bg-white text-gray-800 border-blue-300' 
+            className={`text-xs font-bold px-2 py-1 border-t border-b border-l border-r rounded-none ${activeTab === 'current'
+                ? 'bg-white text-gray-800 border-blue-300'
                 : 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200'
-            }`}
+              }`}
           >
             Current chat
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('history')}
-            className={`text-xs font-bold px-2 py-1 border-l border-t border-b border-r rounded-none ${
-              activeTab === 'history' 
-                ? 'bg-white text-gray-800 border-blue-300' 
+            className={`text-xs font-bold px-2 py-1 border-l border-t border-b border-r rounded-none ${activeTab === 'history'
+                ? 'bg-white text-gray-800 border-blue-300'
                 : 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200'
-            }`}
+              }`}
           >
             Past chats ({visitor.visitor_details?.chat_count || 0})
           </button>
         </div>
       </div>
-      
+
       {/* Tab Content */}
       {activeTab === 'current' ? renderCurrentChat() : renderPastChats()}
-      
+
       {/* Removed fullscreen rating modal in favor of inline popover above action icons */}
     </div>
   );

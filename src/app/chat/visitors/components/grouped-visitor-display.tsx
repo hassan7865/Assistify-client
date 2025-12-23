@@ -170,12 +170,12 @@ const GroupedVisitorDisplay: React.FC<GroupedVisitorDisplayProps> = ({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="text-xs font-medium text-gray-900 truncate cursor-pointer">
-                              {visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8) || 'Unknown'}
+                              {visitor.visitor_details?.first_name || visitor.visitor_id?.substring(0, 8) || 'Unknown'}
                             </span>
                           </TooltipTrigger>
                           <TooltipContent className="bg-white border border-gray-200 text-gray-900 [&>svg]:hidden [&>svg]:opacity-0" side="top">
                             <p className="max-w-xs break-all">
-                               {visitor.visitor_details?.first_name || visitor.visitor_id.substring(0, 8) || 'Unknown'}
+                               {visitor.visitor_details?.first_name || visitor.visitor_id?.substring(0, 8) || 'Unknown'}
                             </p>
                           </TooltipContent>
                         </Tooltip>
