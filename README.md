@@ -1,44 +1,50 @@
-# Assistify
+# Assistify Dashboard
 
-Chat client dashboard — Next.js app with an authenticated API client.
+Next.js operator dashboard for Hailou Chat: live visitor chat, history, tickets, customers, organizations, and reporting.
 
 ## Overview
 
-Assistify (this repo: `Assistify-client`) is a Next.js dashboard for a chat system. It talks to a backend API through a shared Axios client with auth handling.
+Authenticated agents and client admins work from a role-gated UI. The app talks to the Hailou Chat HTTP API with Axios (Bearer access token + refresh), and uses a singleton SSE manager for agent notification streams. Global chat context keeps live conversation UI available across routes.
+
+## Features
+
+- Login with token refresh and `/auth/me` session restore
+- Role guards: `client_admin` and `client_agent`
+- Live chat workspace: visitors, conversation history, personal and agent settings
+- Dashboard: customers, organizations, tickets, reporting
+- Real-time notifications via SSE (`/notifications/stream/{agentId}`)
+- Protected routes and shared UI primitives (Radix-based)
 
 ## Stack
 
-- Next.js
-- React
-- TypeScript
-- Axios
+- Next.js 15 (Turbopack), React 19, TypeScript
+- Axios, Tailwind CSS, Lucide / react-icons
+- SSE for notifications; emoji picker for chat compose
 
-## Environment
+## Structure
 
-Create a `.env.local` file:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+src/app/
+  login/           # Auth
+  chat/            # Visitors, history, settings (agents / personal)
+  dashboard/       # Customers, organizations, tickets, reporting
+src/contexts/      # Auth, global chat, visitor actions/requests
+src/lib/           # Axios client, SSE manager, storage helpers
+src/components/    # Protected route, role guard, UI kit
 ```
 
-## API client
-
-Authenticated requests go through a centralized Axios interceptor at `src/lib/axios.ts` (base URL, auth headers, error handling).
-
-## Getting started
+## How to run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Build:
+Production:
 
 ```bash
 npm run build
 npm start
 ```
 
-## Notes
-
-Keep tokens and API URLs in env files — do not commit secrets.
+The API client in `src/lib/axios.ts` targets the Hailou Chat API base URL. Point it at your own backend if you run a local API. Keep tokens in browser storage / env only — do not commit secrets.
