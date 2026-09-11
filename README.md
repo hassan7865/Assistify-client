@@ -1,71 +1,44 @@
-# Craftech Client
+# Assistify
 
-A Next.js-based client application for the Craftech chat system.
+Chat client dashboard — Next.js app with an authenticated API client.
 
-## Environment Setup
+## Overview
 
-Create a `.env.local` file in the root directory with the following variables:
+Assistify (this repo: `Assistify-client`) is a Next.js dashboard for a chat system. It talks to a backend API through a shared Axios client with auth handling.
+
+## Stack
+
+- Next.js
+- React
+- TypeScript
+- Axios
+
+## Environment
+
+Create a `.env.local` file:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-## API Configuration
+## API client
 
-The application uses a centralized axios interceptor located at `src/lib/axios.ts` that:
+Authenticated requests go through a centralized Axios interceptor at `src/lib/axios.ts` (base URL, auth headers, error handling).
 
-- Automatically adds bearer token authentication to all requests
-- Handles 401 unauthorized responses by redirecting to login
-- Uses the base URL from environment variables
+## Getting started
 
-## API Endpoints
-
-API endpoints are centralized in `src/lib/constants.ts` for easy maintenance and updates.
-
-## Usage
-
-### Making API Calls
-
-Instead of using `fetch()` directly, use the axios interceptor:
-
-```typescript
-import api from '@/lib/axios';
-import { API_ENDPOINTS } from '@/lib/constants';
-
-// GET request
-const response = await api.get(`${API_ENDPOINTS.VISITORS}`);
-
-// POST request
-const response = await api.post(`${API_ENDPOINTS.LOGIN}`, {
-  email: 'user@example.com',
-  password: 'password'
-});
+```bash
+npm install
+npm run dev
 ```
 
-### Authentication
+Build:
 
-The axios interceptor automatically:
-- Reads the bearer token from localStorage
-- Adds it to the Authorization header
-- Handles token expiration and redirects
-
-### WebSocket Connections
-
-WebSocket URLs are automatically generated from the API base URL:
-
-```typescript
-const wsUrl = `${API_ENDPOINTS.WS_BASE}/ws/chat/${sessionId}/agent/${agentId}`;
+```bash
+npm run build
+npm start
 ```
 
-## Development
+## Notes
 
-1. Install dependencies: `npm install`
-2. Set up environment variables
-3. Run development server: `npm run dev`
-
-## Project Structure
-
-- `src/lib/axios.ts` - Axios interceptor with authentication
-- `src/lib/constants.ts` - API endpoint constants
-- `src/contexts/auth-context.tsx` - Authentication context
-- `src/app/chat/visitors/` - Visitor management components
+Keep tokens and API URLs in env files — do not commit secrets.
